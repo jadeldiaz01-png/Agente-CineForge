@@ -38,6 +38,42 @@ The publisher fails closed unless all required gates pass:
 | `IDEMPOTENCY_KEY_PRESENT` | Unique key attached to publish attempt |
 | `PUBLIC_POSTING_AUDITED` | Platform review/audit allows public posting |
 
+## Social Trend Intelligence
+
+CineForge now includes a production-gated trend intelligence layer that ranks
+video opportunities before the agent writes or renders a premium video.
+
+Required information layers:
+
+- Platform API connector.
+- Trend signal ingestion.
+- Metric normalization.
+- Velocity and freshness scoring.
+- Cross-platform fit scoring.
+- Audience and category mapping.
+- Rights and originality review.
+- Policy and safety review.
+- Premium video quality specification.
+- Creative brief generation.
+- Human approval gate.
+- Evidence and lineage ledger.
+- Post-publish metrics feedback.
+
+The module is implemented in:
+
+```text
+src/meta_facebook_mcp_publisher/trend_intelligence.py
+src/meta_facebook_mcp_publisher/trend_cli.py
+tests/test_trend_intelligence.py
+docs/social_trend_intelligence.md
+.github/workflows/social-trend-intelligence.yml
+```
+
+The agent blocks a trend even when metrics are strong if rights are not verified,
+policy risk is too high, or there is not enough evidence. Missing platform trend
+connectors become a degraded trend signal state rather than a global production
+failure.
+
 ## Local Dry Run
 
 ```bash
