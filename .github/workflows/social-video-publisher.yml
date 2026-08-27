@@ -42,10 +42,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install publisher package
-        run: python -m pip install ./meta_facebook_mcp_publisher
+        run: python -m pip install .
 
       - name: Validate package
-        run: python -m compileall -q meta_facebook_mcp_publisher/src meta_facebook_mcp_publisher/tests
+        run: python -m compileall -q src tests
 
       - name: Publish approved video
         env:
@@ -81,4 +81,3 @@ jobs:
             --platforms "${{ inputs.platforms }}" \
             --idempotency-key "${{ github.run_id }}-${{ github.run_attempt }}" \
             $FLAGS
-
