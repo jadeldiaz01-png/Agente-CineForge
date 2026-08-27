@@ -122,3 +122,47 @@ GitHub Actions workflow:
 Training mode is intentionally fail-closed. Internet data must have source URL,
 license, terms review, collection/robots review, and personal-data review before
 it can be used for training or fine-tuning.
+
+## AI Provider Gateway
+
+The agent now includes an AI provider gateway for production inference and
+fallback routing.
+
+| Provider | Default Model | Role |
+| --- | --- | --- |
+| NVIDIA NIM | `nvidia/nemotron-3-ultra-550b-a55b` | Primary heavy reasoning/planning provider |
+| Groq | `llama-3.3-70b-versatile` | Fast free-tier/OpenAI-compatible fallback |
+| Hugging Face | `meta-llama/Llama-3.1-8B-Instruct` | Open-model serverless fallback |
+| Gemini | `gemini-2.5-flash` | Low-cost/free-tier long-context fallback |
+
+Run locally:
+
+```bash
+python -m meta_facebook_mcp_publisher.ai_cli \
+  --prompt "Create a production-safe video plan" \
+  --dry-run
+```
+
+GitHub Actions workflow:
+
+```text
+.github/workflows/ai-provider-gateway.yml
+```
+
+Required AI secrets:
+
+```text
+NVIDIA_NIM_API_KEY
+GROQ_API_KEY
+HF_TOKEN
+GEMINI_API_KEY
+```
+
+Required AI variables start disabled:
+
+```text
+NVIDIA_NIM_ENABLED=false
+GROQ_ENABLED=false
+HF_INFERENCE_ENABLED=false
+GEMINI_ENABLED=false
+```
