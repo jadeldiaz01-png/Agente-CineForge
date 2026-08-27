@@ -99,3 +99,26 @@ X_PUBLISHING_ENABLED
 - https://developers.google.com/youtube/v3/guides/uploading_a_video
 - https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
 - https://docs.x.com/x-api/media/introduction
+
+## ML/DL/LLM Governance
+
+The repository includes an offline training-governance layer for future
+machine-learning improvements. It registers approved sources, records license
+and lineage evidence, builds a training plan, and blocks production training
+when a source lacks review.
+
+Run locally:
+
+```bash
+python -m meta_facebook_mcp_publisher.train_cli --print-layers
+```
+
+GitHub Actions workflow:
+
+```text
+.github/workflows/ml-training-governance.yml
+```
+
+Training mode is intentionally fail-closed. Internet data must have source URL,
+license, terms review, collection/robots review, and personal-data review before
+it can be used for training or fine-tuning.
