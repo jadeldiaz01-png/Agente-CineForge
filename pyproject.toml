@@ -1,0 +1,11 @@
+[project]
+name = "meta-facebook-mcp-publisher"
+version = "0.1.0"
+description = "Fail-closed Meta/Facebook Page video publisher scaffold for agentic video systems."
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
