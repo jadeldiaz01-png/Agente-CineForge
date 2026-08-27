@@ -1,4 +1,5 @@
 from .client import MetaFacebookClient
+from .ai_gateway import AIProvider, AIProviderConfig, AIProviderGateway, AIRequest, AIResponse
 from .data_governance import DataSource, SourceDecision, SourcePolicyResult, evaluate_data_source
 from .dataset_registry import DatasetRecord, DatasetRegistry, production_training_allowed
 from .gates import PublishGateDecision, evaluate_platform_publish_gates, evaluate_publish_gates
@@ -11,6 +12,11 @@ __all__ = [
     "DataSource",
     "DatasetRecord",
     "DatasetRegistry",
+    "AIProvider",
+    "AIProviderConfig",
+    "AIProviderGateway",
+    "AIRequest",
+    "AIResponse",
     "MetaFacebookClient",
     "MultiPlatformPublisher",
     "PublishGateDecision",
