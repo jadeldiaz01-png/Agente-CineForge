@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Social Video MCP Publisher Tool Contract",
+  "type": "object",
+  "required": ["tools"],
+  "properties": {
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description", "requires_human_approval"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "requires_human_approval": { "type": "boolean" },
+          "required_gates": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "tools": [
+        {
+          "name": "social_publish_video",
+          "description": "Publish an approved MP4 video to a connected social platform.",
+          "requires_human_approval": true,
+          "required_gates": [
+            "VIDEO_QC_PASSED",
+            "ORIGINALITY_REVIEWED",
+            "HUMAN_APPROVED",
+            "RATE_LIMIT_ALLOWED",
+            "CONNECTOR_PRODUCTION_READY"
+          ]
+        }
+      ]
+    }
+  ]
+}
