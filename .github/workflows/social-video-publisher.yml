@@ -1,0 +1,84 @@
+name: social-video-publisher
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Comma-separated platforms: facebook,youtube,tiktok,x"
+        required: true
+        default: "facebook,youtube,tiktok,x"
+      video_path:
+        description: "Path to approved MP4 artifact inside the repository or workflow workspace"
+        required: true
+        default: "artifacts/approved-video.mp4"
+      caption:
+        description: "Approved caption/description"
+        required: true
+      dry_run:
+        description: "Validate execution without calling external APIs"
+        required: true
+        type: boolean
+        default: true
+      human_approved:
+        description: "Final human approval for external publication"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install publisher package
+        run: python -m pip install ./meta_facebook_mcp_publisher
+
+      - name: Validate package
+        run: python -m compileall -q meta_facebook_mcp_publisher/src meta_facebook_mcp_publisher/tests
+
+      - name: Publish approved video
+        env:
+          META_GRAPH_VERSION: v26.0
+          META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+          META_PUBLISHING_ENABLED: ${{ vars.META_PUBLISHING_ENABLED || 'false' }}
+          META_REELS_DAILY_LIMIT: ${{ vars.META_REELS_DAILY_LIMIT || '30' }}
+          YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+          YOUTUBE_OAUTH_ACCESS_TOKEN: ${{ secrets.YOUTUBE_OAUTH_ACCESS_TOKEN }}
+          YOUTUBE_PUBLISHING_ENABLED: ${{ vars.YOUTUBE_PUBLISHING_ENABLED || 'false' }}
+          YOUTUBE_DAILY_UPLOAD_LIMIT: ${{ vars.YOUTUBE_DAILY_UPLOAD_LIMIT || '6' }}
+          TIKTOK_ACCOUNT_ID: ${{ secrets.TIKTOK_ACCOUNT_ID }}
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+          TIKTOK_PUBLISHING_ENABLED: ${{ vars.TIKTOK_PUBLISHING_ENABLED || 'false' }}
+          TIKTOK_PUBLIC_POSTING_AUDITED: ${{ vars.TIKTOK_PUBLIC_POSTING_AUDITED || 'false' }}
+          TIKTOK_DAILY_POST_LIMIT: ${{ vars.TIKTOK_DAILY_POST_LIMIT || '30' }}
+          X_ACCOUNT_ID: ${{ secrets.X_ACCOUNT_ID }}
+          X_USER_ACCESS_TOKEN: ${{ secrets.X_USER_ACCESS_TOKEN }}
+          X_PUBLISHING_ENABLED: ${{ vars.X_PUBLISHING_ENABLED || 'false' }}
+          X_DAILY_POST_LIMIT: ${{ vars.X_DAILY_POST_LIMIT || '17' }}
+        run: |
+          FLAGS=""
+          if [ "${{ inputs.human_approved }}" = "true" ]; then
+            FLAGS="$FLAGS --human-approved --video-qc-passed --originality-reviewed"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+          fi
+          python -m meta_facebook_mcp_publisher.cli \
+            --video "${{ inputs.video_path }}" \
+            --caption "${{ inputs.caption }}" \
+            --platforms "${{ inputs.platforms }}" \
+            --idempotency-key "${{ github.run_id }}-${{ github.run_attempt }}" \
+            $FLAGS
+
