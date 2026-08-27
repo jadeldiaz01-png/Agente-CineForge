@@ -1,0 +1,64 @@
+name: social-trend-intelligence
+
+on:
+  workflow_dispatch:
+    inputs:
+      minimum_score:
+        description: Minimum premium opportunity score
+        required: true
+        default: "0.45"
+
+jobs:
+  trend-gate:
+    runs-on: ubuntu-latest
+    env:
+      YOUTUBE_TRENDS_ENABLED: ${{ vars.YOUTUBE_TRENDS_ENABLED || 'false' }}
+      TIKTOK_TRENDS_ENABLED: ${{ vars.TIKTOK_TRENDS_ENABLED || 'false' }}
+      META_TRENDS_ENABLED: ${{ vars.META_TRENDS_ENABLED || 'false' }}
+      X_TRENDS_ENABLED: ${{ vars.X_TRENDS_ENABLED || 'false' }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+      X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: python -m pip install .
+
+      - name: Compile source and tests
+        run: python -m compileall -q src tests
+
+      - name: Print required trend intelligence layers
+        run: python -m meta_facebook_mcp_publisher.trend_cli --list-layers
+
+      - name: Run trend scorer smoke test
+        run: |
+          python - <<'PY'
+          from datetime import UTC, datetime
+          from meta_facebook_mcp_publisher.models import Platform
+          from meta_facebook_mcp_publisher.trend_intelligence import TrendCandidate, TrendSignal, score_trend_candidate
+
+          now = datetime(2026, 8, 27, tzinfo=UTC)
+          candidate = TrendCandidate(
+              topic="premium workflow",
+              platforms=(Platform.FACEBOOK, Platform.YOUTUBE),
+              signals=(
+                  TrendSignal(Platform.FACEBOOK, "premium workflow", "meta", "https://developers.facebook.com/documentation/video-api/guides/reels-publishing", now, views=100000, likes=8000, comments=700, shares=1200),
+                  TrendSignal(Platform.YOUTUBE, "premium workflow", "youtube", "https://developers.google.com/youtube/v3/docs/videos/list", now, views=120000, likes=9000, comments=900, shares=1500),
+              ),
+              audience="creators",
+              creative_angle="A before and after premium transformation.",
+              hook_pattern="Your video fails before second one.",
+              originality_risk=0.05,
+              policy_risk=0.05,
+              rights_verified=True,
+          )
+          score = score_trend_candidate(candidate, now)
+          assert score.score >= 0.45, score
+          print(score)
+          PY
