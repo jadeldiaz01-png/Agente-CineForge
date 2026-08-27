@@ -1,23 +1,19 @@
 # GitHub Integration Guide
 
-## Repository Files To Add
+## Repository Layout
 
-Copy this package into the target repository:
-
-- `meta_facebook_mcp_publisher/`
-- `meta_facebook_mcp_publisher/.github/workflows/social-video-publisher.yml`
-
-If the repository already has a `.github/workflows/` directory, move the
-workflow file to:
+This repository is already laid out as a Python package:
 
 ```text
-.github/workflows/social-video-publisher.yml
-```
-
-and keep the Python package at:
-
-```text
-meta_facebook_mcp_publisher/
+.
+├── .github/workflows/social-video-publisher.yml
+├── src/meta_facebook_mcp_publisher/
+├── tests/
+├── policies/
+├── contracts/
+├── docs/
+├── pyproject.toml
+└── README.md
 ```
 
 ## Required GitHub Secrets
@@ -72,4 +68,3 @@ Run the workflow from GitHub Actions:
 The workflow can run even if one platform is missing. Connected and verified
 platforms may publish; missing platforms return degraded status and do not block
 the full agent.
-
