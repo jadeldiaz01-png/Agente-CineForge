@@ -1,0 +1,60 @@
+name: ml-training-governance
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_name:
+        description: "Optional approved dataset/source name"
+        required: false
+      source_url:
+        description: "Optional approved dataset/source URL"
+        required: false
+      source_license:
+        description: "Optional source license"
+        required: false
+      terms_reviewed:
+        description: "Terms/license reviewed by a human"
+        required: true
+        type: boolean
+        default: false
+      robots_reviewed:
+        description: "Robots/collection rules reviewed by a human"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  training-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: python -m pip install .
+
+      - name: Compile
+        run: python -m compileall -q src tests
+
+      - name: Build governed training plan
+        run: |
+          ARGS="--print-layers"
+          if [ -n "${{ inputs.source_name }}" ] && [ -n "${{ inputs.source_url }}" ] && [ -n "${{ inputs.source_license }}" ]; then
+            ARGS="$ARGS --source-name '${{ inputs.source_name }}' --source-url '${{ inputs.source_url }}' --source-license '${{ inputs.source_license }}'"
+          fi
+          if [ "${{ inputs.terms_reviewed }}" = "true" ]; then
+            ARGS="$ARGS --terms-reviewed"
+          fi
+          if [ "${{ inputs.robots_reviewed }}" = "true" ]; then
+            ARGS="$ARGS --robots-reviewed"
+          fi
+          python -m meta_facebook_mcp_publisher.train_cli $ARGS
+
