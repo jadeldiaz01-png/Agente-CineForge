@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "component": "cineforge-social-intelligence-publisher",
+  "decision": "BLOCKED",
+  "target": "PRODUCTION_READY",
+  "gates": {
+    "deterministic_publish_policy": true,
+    "human_approval_required_for_publish": true,
+    "idempotency_required": true,
+    "rate_limit_gate": true,
+    "video_qc_gate": true,
+    "originality_review_gate": true,
+    "public_posting_audit_gate": true,
+    "runtime_budget_enforced": true,
+    "least_privilege_tool_scope_enforced": true,
+    "secret_redaction_in_telemetry": true,
+    "unit_integration_tests": true,
+    "adversarial_authority_tests": true,
+    "data_lineage_controls": true,
+    "slo_contract_documented": true,
+    "incident_runbook_documented": true,
+    "managed_platform_credentials_verified": false,
+    "platform_account_permissions_verified": false,
+    "platform_public_posting_reviews_verified": false,
+    "live_or_sandbox_contract_publish_evidence": false,
+    "protected_default_branch": false,
+    "verified_head_signature": false,
+    "artifact_provenance_attestation": false
+  },
+  "production_invariant": "PRODUCTION_READY requires every gate true and zero blockers; publication remains disabled otherwise.",
+  "blockers": [
+    {"owner": "human_admin", "id": "credentials", "reason": "Authorize and configure managed platform credentials and account IDs."},
+    {"owner": "platform", "id": "posting_reviews", "reason": "Verify current platform public-posting review/audit requirements for every platform enabled in production."},
+    {"owner": "human_admin", "id": "repository_governance", "reason": "Activate protected main and establish verified signed promotion flow."},
+    {"owner": "evidence", "id": "contract_publish", "reason": "Capture sandbox/live contract evidence after credentials and platform permissions are authorized."}
+  ]
+}
