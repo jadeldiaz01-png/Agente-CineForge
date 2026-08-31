@@ -1,0 +1,84 @@
+name: production-readiness
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout immutable revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Install controlled test toolchain
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pytest==8.4.2 .
+
+      - name: Compile source
+        run: python -m compileall -q src tests scripts
+
+      - name: Run production-readiness manifest validator
+        run: python scripts/validate_production_readiness.py
+
+      - name: Run unit integration and adversarial tests
+        run: python -m pytest -q
+
+      - name: Require immutable third-party Actions
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          failures=[]
+          for p in Path('.github/workflows').glob('*.y*ml'):
+              for n,line in enumerate(p.read_text(encoding='utf-8').splitlines(),1):
+                  m=re.search(r'\buses:\s*([^\s#]+)', line)
+                  if m and not m.group(1).startswith('./') and not re.search(r'@[0-9a-fA-F]{40}$', m.group(1)):
+                      failures.append(f'{p}:{n}:{m.group(1)}')
+          if failures:
+              print('\n'.join(failures))
+              raise SystemExit('IMMUTABLE_ACTIONS=FAIL')
+          print('IMMUTABLE_ACTIONS=PASS')
+          PY
+
+      - name: Generate minimal SPDX SBOM
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib.metadata as md, json, pathlib, uuid
+          packages=[]
+          for name in ('meta-facebook-mcp-publisher','pytest'):
+              try:
+                  dist=md.distribution(name)
+              except md.PackageNotFoundError:
+                  continue
+              packages.append({'SPDXID':f'SPDXRef-Package-{name}','name':name,'versionInfo':dist.version,'downloadLocation':'NOASSERTION','filesAnalyzed':False})
+          doc={'spdxVersion':'SPDX-2.3','dataLicense':'CC0-1.0','SPDXID':'SPDXRef-DOCUMENT','name':'cineforge-ci-sbom','documentNamespace':f'https://jadeltechrd.com/spdx/{uuid.uuid4()}','creationInfo':{'creators':['Tool: jadel-cineforge-readiness'],'created':'2026-08-31T00:00:00Z'},'packages':packages}
+          pathlib.Path('artifacts').mkdir(exist_ok=True)
+          pathlib.Path('artifacts/sbom.spdx.json').write_text(json.dumps(doc,indent=2,sort_keys=True),encoding='utf-8')
+          PY
+
+      - name: Upload readiness evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cineforge-production-readiness-${{ github.sha }}
+          path: |
+            config/production-readiness.json
+            artifacts/sbom.spdx.json
+          if-no-files-found: error
