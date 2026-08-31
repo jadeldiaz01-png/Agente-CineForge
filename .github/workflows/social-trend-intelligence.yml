@@ -8,6 +8,9 @@ on:
         required: true
         default: "0.45"
 
+permissions:
+  contents: read
+
 jobs:
   trend-gate:
     runs-on: ubuntu-latest
@@ -21,9 +24,13 @@ jobs:
       META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
       X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
 
@@ -38,6 +45,7 @@ jobs:
 
       - name: Run trend scorer smoke test
         run: |
+          set -euo pipefail
           python - <<'PY'
           from datetime import UTC, datetime
           from meta_facebook_mcp_publisher.models import Platform
@@ -59,6 +67,6 @@ jobs:
               rights_verified=True,
           )
           score = score_trend_candidate(candidate, now)
-          assert score.score >= 0.45, score
+          assert score.score >= float("${{ inputs.minimum_score }}"), score
           print(score)
           PY
