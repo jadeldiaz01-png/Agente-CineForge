@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_type": "video_asset_intake",
+  "asset": {
+    "original_filename": "VID_20260906_152927_732.mp4",
+    "sha256": "0f5f001d37773572b76cf67177baa820ec61def33caeaed5cf992dd02b5f5445",
+    "size_bytes": 23752432,
+    "container": "mp4",
+    "duration_seconds": 38.421042,
+    "video": {
+      "codec": "hevc",
+      "profile": "Main",
+      "width": 720,
+      "height": 1280,
+      "aspect_ratio": "9:16",
+      "fps": 30.0,
+      "pixel_format": "yuv420p",
+      "color_primaries": "bt709",
+      "bit_rate_bps": 4753565
+    },
+    "audio": {
+      "codec": "aac",
+      "profile": "LC",
+      "sample_rate_hz": 44100,
+      "channels": 2,
+      "bit_rate_bps": 127949
+    }
+  },
+  "provenance": {
+    "source": "user_authorized_conversation_upload",
+    "observed_at": "2026-09-06T22:34:00Z",
+    "binary_committed_to_repository": false,
+    "binary_persistence": "external_or_conversation_source_required",
+    "integrity_binding": "sha256"
+  },
+  "technical_qc": {
+    "vertical_short_form_compatible": true,
+    "facebook_reels_candidate": true,
+    "youtube_shorts_candidate": true,
+    "transcode_recommended": true,
+    "recommended_delivery_codec": "h264+aac",
+    "recommended_delivery_resolution": "1080x1920",
+    "reason": "Normalize compatibility and generation quality; source is 720x1280 HEVC."
+  },
+  "content_review": {
+    "status": "HUMAN_CLEARANCE_REQUIRED",
+    "observations": [
+      "Frames show cryptocurrency/wallet balances and earnings-oriented messaging.",
+      "Frames include a visible third-party social-media handle/creator likeness.",
+      "On-screen messaging appears to reference using ChatGPT to mine Bitcoin for free and daily earnings.",
+      "Accuracy of financial/crypto claims has not been independently substantiated.",
+      "Rights to source footage, likeness, logos, UI captures, music and audio have not been established in repository evidence."
+    ],
+    "publication_blockers": [
+      "financial_claims_substantiation",
+      "source_media_rights",
+      "likeness_and_identity_rights",
+      "audio_music_rights",
+      "platform_policy_clearance"
+    ]
+  },
+  "authorization": {
+    "user_authorized_integration": true,
+    "autonomous_publication_authorized": false,
+    "production_publication_allowed": false
+  }
+}

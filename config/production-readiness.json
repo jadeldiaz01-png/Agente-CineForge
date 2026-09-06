@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "component": "cineforge-social-intelligence-publisher",
   "decision": "BLOCKED",
   "target": "PRODUCTION_READY",
@@ -19,19 +19,42 @@
     "data_lineage_controls": true,
     "slo_contract_documented": true,
     "incident_runbook_documented": true,
+    "video_asset_evidence_integrated": true,
+    "video_asset_integrity_hash_recorded": true,
+    "short_form_format_profile_verified": true,
+    "platform_policy_risk_review_recorded": true,
+    "artifact_provenance_attestation_configured": true,
     "managed_platform_credentials_verified": false,
     "platform_account_permissions_verified": false,
     "platform_public_posting_reviews_verified": false,
     "live_or_sandbox_contract_publish_evidence": false,
     "protected_default_branch": false,
     "verified_head_signature": false,
-    "artifact_provenance_attestation": false
+    "artifact_provenance_attestation": false,
+    "source_media_rights_verified": false,
+    "likeness_and_identity_rights_verified": false,
+    "audio_music_rights_verified": false,
+    "financial_claims_substantiated": false,
+    "publication_policy_clearance": false
   },
-  "production_invariant": "PRODUCTION_READY requires every gate true and zero blockers; publication remains disabled otherwise.",
+  "evidence": {
+    "video_asset_record": "evidence/video/VID_20260906_152927_732.json",
+    "video_asset_sha256": "0f5f001d37773572b76cf67177baa820ec61def33caeaed5cf992dd02b5f5445",
+    "source_main_sha_observed": "8eb2e6dc6c9fc208a79dc71e0a9d1e8cbc6cbdce",
+    "source_main_sha_github_verified": true,
+    "source_main_branch_protected": false
+  },
+  "production_invariant": "PRODUCTION_READY requires every gate true, zero blockers, immutable evidence bound to the promoted SHA, and human approval for every public publication action.",
   "blockers": [
     {"owner": "human_admin", "id": "credentials", "reason": "Authorize and configure managed platform credentials and account IDs."},
     {"owner": "platform", "id": "posting_reviews", "reason": "Verify current platform public-posting review/audit requirements for every platform enabled in production."},
     {"owner": "human_admin", "id": "repository_governance", "reason": "Activate protected main and establish verified signed promotion flow."},
-    {"owner": "evidence", "id": "contract_publish", "reason": "Capture sandbox/live contract evidence after credentials and platform permissions are authorized."}
+    {"owner": "evidence", "id": "contract_publish", "reason": "Capture sandbox/live contract evidence after credentials and platform permissions are authorized."},
+    {"owner": "rights", "id": "source_media_rights", "reason": "Establish documentary rights/licence for the uploaded source footage and visible third-party material."},
+    {"owner": "rights", "id": "likeness_identity_rights", "reason": "Establish permission or lawful basis for visible creator likeness, handle and identity elements."},
+    {"owner": "rights", "id": "audio_music_rights", "reason": "Establish rights/licence for soundtrack, speech and any third-party audio."},
+    {"owner": "content_governance", "id": "financial_claims", "reason": "Substantiate or remove claims implying free Bitcoin mining, crypto earnings or daily income before publication."},
+    {"owner": "content_governance", "id": "platform_policy_clearance", "reason": "Complete platform-specific deceptive-practices/scams and monetization-policy clearance for the final edit and metadata."},
+    {"owner": "supply_chain", "id": "provenance_attestation", "reason": "Run the hardened workflow and capture a successful signed artifact attestation for the exact candidate SHA."}
   ]
 }
