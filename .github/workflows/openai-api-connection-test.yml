@@ -1,0 +1,72 @@
+name: openai-api-connection-test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/openai-api-connection-test.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Probe OpenAI API safely
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.6-luna' }}
+          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL || 'https://api.openai.com/v1' }}
+        run: |
+          set -euo pipefail
+          set +x
+
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "SECRET_PRESENT=false"
+            echo "OpenAI probe: repository/environment secret is missing or empty." >> "$GITHUB_STEP_SUMMARY"
+            exit 2
+          fi
+
+          echo "SECRET_PRESENT=true"
+
+          models_code=$(curl --silent --show-error \
+            --connect-timeout 10 --max-time 30 \
+            --output /tmp/openai-models.json \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${OPENAI_API_KEY}" \
+            --header 'Accept: application/json' \
+            "${OPENAI_BASE_URL%/}/models")
+
+          printf 'MODELS_HTTP=%s\n' "$models_code"
+
+          response_code=$(curl --silent --show-error \
+            --connect-timeout 10 --max-time 60 \
+            --output /tmp/openai-response.json \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header "Authorization: Bearer ${OPENAI_API_KEY}" \
+            --header 'Content-Type: application/json' \
+            --data "{\"model\":\"${OPENAI_MODEL}\",\"input\":\"Reply with exactly OK.\",\"max_output_tokens\":16}" \
+            "${OPENAI_BASE_URL%/}/responses")
+
+          printf 'RESPONSES_HTTP=%s\n' "$response_code"
+
+          {
+            echo '## OpenAI API connection test'
+            echo '- Secret present: yes'
+            echo "- Models HTTP: ${models_code}"
+            echo "- Responses HTTP: ${response_code}"
+            echo "- Model: ${OPENAI_MODEL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$models_code" = "200" ] && [ "$response_code" = "200" ]; then
+            echo 'OPENAI_API_CONNECTION=PASS'
+            exit 0
+          fi
+
+          echo 'OPENAI_API_CONNECTION=FAIL'
+          exit 1
