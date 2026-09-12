@@ -50,10 +50,19 @@ jobs:
             --request POST \
             --header "Authorization: Bearer ${OPENAI_API_KEY}" \
             --header 'Content-Type: application/json' \
-            --data "{\"model\":\"${OPENAI_MODEL}\",\"input\":\"Reply with exactly OK.\",\"max_output_tokens\":8}" \
+            --data "{\"model\":\"${OPENAI_MODEL}\",\"input\":\"Reply with exactly OK.\",\"max_output_tokens\":32,\"reasoning\":{\"effort\":\"none\"}}" \
             "${OPENAI_BASE_URL%/}/responses")
 
           printf 'RESPONSES_HTTP=%s\n' "$response_code"
+
+          if [ "$response_code" != "200" ]; then
+            error_type=$(jq -r '.error.type // "unknown"' /tmp/openai-response.json 2>/dev/null || echo unknown)
+            error_code=$(jq -r '.error.code // "unknown"' /tmp/openai-response.json 2>/dev/null || echo unknown)
+            error_message=$(jq -r '.error.message // "No structured error message"' /tmp/openai-response.json 2>/dev/null || echo 'No structured error message')
+            printf 'OPENAI_ERROR_TYPE=%s\n' "$error_type"
+            printf 'OPENAI_ERROR_CODE=%s\n' "$error_code"
+            printf 'OPENAI_ERROR_MESSAGE=%s\n' "$error_message"
+          fi
 
           {
             echo '## OpenAI API connection test'
