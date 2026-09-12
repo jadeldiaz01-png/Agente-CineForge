@@ -1,21 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from importlib import resources
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 from typing import Any, Iterable
 
 
-DEFAULT_CATALOG = (
-    Path(__file__).resolve().parents[2] / "config" / "free-video-providers-2026.json"
-)
+_CATALOG_PACKAGE = "meta_facebook_mcp_publisher"
+_CATALOG_RESOURCE = ("data", "free-video-providers-2026.json")
+_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
 @dataclass(frozen=True)
 class FreeVideoRequirement:
-    """Requirements for a zero-cash-cost source-selection decision."""
+    """Requirements for a zero-external-cash source-selection decision."""
 
     real_footage_required: bool = False
     generated_video_required: bool = False
@@ -24,7 +26,9 @@ class FreeVideoRequirement:
 
     def __post_init__(self) -> None:
         if self.real_footage_required and self.generated_video_required:
-            raise ValueError("real_footage_required and generated_video_required are mutually exclusive")
+            raise ValueError(
+                "real_footage_required and generated_video_required are mutually exclusive"
+            )
 
 
 @dataclass(frozen=True)
@@ -40,7 +44,8 @@ class RuntimeCapabilities:
         markers = frozenset(
             key
             for key, value in env.items()
-            if key.startswith("CINEFORGE_") and str(value).strip().lower() in {"1", "true", "yes", "on"}
+            if key.startswith("CINEFORGE_")
+            and str(value).strip().lower() in {"1", "true", "yes", "on"}
         )
         cuda_ready = any(
             marker in markers
@@ -49,7 +54,9 @@ class RuntimeCapabilities:
         return cls(
             ffmpeg_available=shutil.which("ffmpeg") is not None,
             cuda_ready=cuda_ready,
-            env_names=frozenset(key for key, value in env.items() if str(value).strip()),
+            env_names=frozenset(
+                key for key, value in env.items() if str(value).strip()
+            ),
             ready_markers=markers,
         )
 
@@ -70,18 +77,29 @@ class ZeroCostSelection:
     failed_gates: tuple[str, ...]
 
 
+def _read_packaged_catalog() -> str:
+    item = resources.files(_CATALOG_PACKAGE)
+    for part in _CATALOG_RESOURCE:
+        item = item.joinpath(part)
+    return item.read_text(encoding="utf-8")
+
+
 def load_catalog(path: str | Path | None = None) -> dict[str, Any]:
-    catalog_path = Path(path or os.getenv("CINEFORGE_FREE_VIDEO_CATALOG") or DEFAULT_CATALOG)
-    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    override = path or os.getenv("CINEFORGE_FREE_VIDEO_CATALOG")
+    raw = Path(override).read_text(encoding="utf-8") if override else _read_packaged_catalog()
+    data = json.loads(raw)
     validate_catalog(data)
     return data
 
 
 def validate_catalog(catalog: dict[str, Any]) -> None:
-    if catalog.get("policy", {}).get("max_external_cash_cost_usd") != 0.0:
+    policy = catalog.get("policy", {})
+    if policy.get("max_external_cash_cost_usd") != 0.0:
         raise ValueError("zero-cost catalog must have max_external_cash_cost_usd=0.0")
-    if catalog.get("policy", {}).get("autonomous_purchase_allowed") is not False:
+    if policy.get("autonomous_purchase_allowed") is not False:
         raise ValueError("autonomous purchases must be disabled")
+    if policy.get("paid_fallback_allowed") is not False:
+        raise ValueError("paid fallback must be disabled")
 
     ids: set[str] = set()
     for provider in catalog.get("providers", []):
@@ -98,13 +116,37 @@ def validate_catalog(catalog: dict[str, Any]) -> None:
             )
         if provider.get("role") == "source" and not provider.get("license_url"):
             raise ValueError(f"source provider {provider_id} must declare license_url")
+        if (
+            provider.get("commercial_use") == "allowed_with_asset_license_gate"
+            and provider.get("asset_license_gate") is not True
+        ):
+            raise ValueError(
+                f"provider {provider_id} must require an asset license gate"
+            )
 
 
 def _commercial_rights_pass(provider: dict[str, Any], license_attested: set[str]) -> bool:
     status = provider.get("commercial_use")
-    if status in {"allowed", "allowed_subject_to_build_license"}:
+    if status in {
+        "allowed",
+        "allowed_subject_to_build_license",
+        "allowed_with_asset_license_gate",
+    }:
         return True
     return provider.get("id") in license_attested
+
+
+def _native_resolution_gate(
+    provider: dict[str, Any], provider_id: str, resolution_attested: set[str]
+) -> str | None:
+    status = provider.get("native_1080_vertical")
+    if status in {"yes", "asset_dependent"}:
+        return None
+    if status == "runtime_benchmark_required":
+        return None if provider_id in resolution_attested else "NATIVE_FULL_HD_BENCHMARK"
+    if status in {"no", "unsupported"}:
+        return "NATIVE_FULL_HD_UNSUPPORTED"
+    return "NATIVE_FULL_HD_NOT_CERTIFIED"
 
 
 def evaluate_source_provider(
@@ -134,7 +176,9 @@ def evaluate_source_provider(
     if provider.get("auto_eligible") is not True:
         failed.append("AUTO_ELIGIBLE")
 
-    missing_env = [name for name in provider.get("requires_env", []) if name not in runtime.env_names]
+    missing_env = [
+        name for name in provider.get("requires_env", []) if name not in runtime.env_names
+    ]
     if missing_env:
         failed.append("REQUIRED_ENV_PRESENT")
 
@@ -151,15 +195,17 @@ def evaluate_source_provider(
     if requirement.generated_video_required and origin != "generated_video":
         failed.append("GENERATED_VIDEO")
 
-    if requirement.commercial_use and not _commercial_rights_pass(provider, license_attested):
+    if requirement.commercial_use and not _commercial_rights_pass(
+        provider, license_attested
+    ):
         failed.append("COMMERCIAL_RIGHTS")
 
     if requirement.native_full_hd_vertical_required:
-        resolution_status = provider.get("native_1080_vertical")
-        if resolution_status == "runtime_benchmark_required" and provider_id not in resolution_attested:
-            failed.append("NATIVE_FULL_HD_BENCHMARK")
-        elif resolution_status in {"model_and_quota_dependent", "export_dependent"}:
-            failed.append("NATIVE_FULL_HD_NOT_CERTIFIED")
+        resolution_failure = _native_resolution_gate(
+            provider, provider_id, resolution_attested
+        )
+        if resolution_failure:
+            failed.append(resolution_failure)
 
     return ProviderDecision(provider_id, not failed, tuple(failed))
 
@@ -214,23 +260,72 @@ def select_zero_cost_pipeline(
     )
 
 
+def load_resolution_attestations(paths: Iterable[str | Path]) -> set[str]:
+    """Load benchmark evidence; never accepts a bare boolean."""
+    providers: set[str] = set()
+    for value in paths:
+        path = Path(value)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if data.get("schema_version") != 1 or data.get("passed") is not True:
+            raise ValueError(f"invalid resolution attestation: {path}")
+        provider_id = str(data.get("provider_id") or "").strip()
+        if not provider_id:
+            raise ValueError(f"resolution attestation missing provider_id: {path}")
+        width = int(data.get("native_width") or 0)
+        height = int(data.get("native_height") or 0)
+        if width < 1080 or height < 1920 or height <= width:
+            raise ValueError(f"attestation is not native Full-HD vertical: {path}")
+        if data.get("upscaled") is not False:
+            raise ValueError(f"upscaled evidence cannot attest native resolution: {path}")
+        sha256 = str(data.get("artifact_sha256") or "")
+        if not _SHA256_RE.fullmatch(sha256):
+            raise ValueError(f"resolution attestation has invalid artifact_sha256: {path}")
+        providers.add(provider_id)
+    return providers
+
+
 def readiness_manifest(
     runtime: RuntimeCapabilities | None = None,
     *,
     catalog: dict[str, Any] | None = None,
+    verified_free_quota: Iterable[str] = (),
+    license_attested: Iterable[str] = (),
+    resolution_attested: Iterable[str] = (),
 ) -> dict[str, Any]:
     runtime = runtime or RuntimeCapabilities.detect()
     catalog = catalog or load_catalog()
     real = select_zero_cost_pipeline(
-        FreeVideoRequirement(real_footage_required=True), runtime, catalog=catalog
+        FreeVideoRequirement(real_footage_required=True),
+        runtime,
+        catalog=catalog,
+        verified_free_quota=verified_free_quota,
+        license_attested=license_attested,
+        resolution_attested=resolution_attested,
     )
-    generated = select_zero_cost_pipeline(
-        FreeVideoRequirement(generated_video_required=True), runtime, catalog=catalog
+    generated_native_fhd = select_zero_cost_pipeline(
+        FreeVideoRequirement(generated_video_required=True),
+        runtime,
+        catalog=catalog,
+        verified_free_quota=verified_free_quota,
+        license_attested=license_attested,
+        resolution_attested=resolution_attested,
+    )
+    generated_720p = select_zero_cost_pipeline(
+        FreeVideoRequirement(
+            generated_video_required=True,
+            native_full_hd_vertical_required=False,
+        ),
+        runtime,
+        catalog=catalog,
+        verified_free_quota=verified_free_quota,
+        license_attested=license_attested,
+        resolution_attested=resolution_attested,
     )
     return {
         "policy": "ZERO_EXTERNAL_CASH_COST",
         "max_external_cash_cost_usd": 0.0,
         "autonomous_purchase_allowed": False,
+        "paid_fallback_allowed": False,
         "runtime": {
             "ffmpeg_available": runtime.ffmpeg_available,
             "cuda_ready": runtime.cuda_ready,
@@ -242,11 +337,23 @@ def readiness_manifest(
             "composer": real.composer_id,
             "failed_gates": list(real.failed_gates),
         },
+        "generated_video_native_fhd_route": {
+            "authorized": generated_native_fhd.authorized,
+            "source": generated_native_fhd.selected_provider_id,
+            "composer": generated_native_fhd.composer_id,
+            "failed_gates": list(generated_native_fhd.failed_gates),
+        },
+        "generated_video_720p_route": {
+            "authorized": generated_720p.authorized,
+            "source": generated_720p.selected_provider_id,
+            "composer": generated_720p.composer_id,
+            "failed_gates": list(generated_720p.failed_gates),
+        },
         "generated_video_route": {
-            "authorized": generated.authorized,
-            "source": generated.selected_provider_id,
-            "composer": generated.composer_id,
-            "failed_gates": list(generated.failed_gates),
+            "authorized": generated_native_fhd.authorized,
+            "source": generated_native_fhd.selected_provider_id,
+            "composer": generated_native_fhd.composer_id,
+            "failed_gates": list(generated_native_fhd.failed_gates),
         },
         "publication_authorized": False,
         "publication_note": "Publishing remains a separate human-approved action.",
