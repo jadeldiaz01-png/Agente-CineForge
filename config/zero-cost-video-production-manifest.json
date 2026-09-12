@@ -1,0 +1,76 @@
+{
+  "manifest_version": "1.0",
+  "as_of": "2026-09-11",
+  "strategy": "ZERO_EXTERNAL_CASH_COST_VIDEO",
+  "max_external_cash_cost_usd": 0.0,
+  "autonomous_purchase_allowed": false,
+  "paid_fallback_allowed": false,
+  "architecture_authorized": true,
+  "live_real_footage_route_authorized": false,
+  "live_generated_video_route_authorized": false,
+  "publication_authorized": false,
+  "preferred_real_footage_route": [
+    "pexels_stock_api_or_pixabay_stock_api",
+    "native_source_resolution_gate_1080x1920",
+    "sha256_and_provenance_sidecar",
+    "ffmpeg_local_composition",
+    "technical_qc",
+    "rights_and_context_review",
+    "human_release_approval",
+    "separate_publication_action"
+  ],
+  "preferred_generated_route": [
+    "wan22_local",
+    "cuda_runtime_certification",
+    "checkpoint_digest_pin",
+    "native_full_hd_benchmark",
+    "technical_qc",
+    "rights_and_safety_review",
+    "human_release_approval",
+    "separate_publication_action"
+  ],
+  "runtime_gates": {
+    "FFMPEG_AVAILABLE": "required",
+    "ZERO_COST_SOURCE_AVAILABLE": "required",
+    "SOURCE_PROVENANCE_PRESENT": "required",
+    "COMMERCIAL_RIGHTS_REVIEWED": "required",
+    "NATIVE_FULL_HD_VERTICAL": "required when requested",
+    "VIDEO_QC_PASSED": "required",
+    "HUMAN_APPROVED": "required"
+  },
+  "human_intervention": {
+    "stock_route": [
+      "Create and securely store at least one free PEXELS_API_KEY or PIXABAY_API_KEY.",
+      "Review recognizable people, brands, property and context before public release."
+    ],
+    "local_generation_route": [
+      "Provide a CUDA-capable runtime and certify the selected model installation.",
+      "Attest any conditional model license before commercial use."
+    ],
+    "publication": [
+      "Approve the exact final master before publishing."
+    ]
+  },
+  "blocked_from_automatic_production": {
+    "krea_free": "free quota and commercial rights are not stable enough for unattended production",
+    "runway_free": "one-time quota/model availability cannot satisfy a persistent zero-cost SLO",
+    "ltx2_local": "conditional community license requires manual legal attestation",
+    "hunyuan15_local": "territorial/use restrictions require manual legal attestation",
+    "canva_free_editor": "manual editor; asset entitlements vary",
+    "capcut_free_editor": "manual/freemium feature set; not a reproducible autonomous backend"
+  },
+  "evidence_urls": [
+    "https://www.pexels.com/license/",
+    "https://www.pexels.com/api/documentation/",
+    "https://pixabay.com/service/license-summary/",
+    "https://pixabay.com/api/docs/",
+    "https://github.com/Wan-Video/Wan2.2",
+    "https://github.com/Lightricks/LTX-2/blob/main/LICENSE-2_x",
+    "https://github.com/Tencent-Hunyuan/HunyuanVideo-1.5/blob/main/LICENSE",
+    "https://www.krea.ai/features/ai-video-generator",
+    "https://help.runwayml.com/hc/en-us/articles/50404627334547-Free-plan-details",
+    "https://kdenlive.org/about/",
+    "https://www.blender.org/about/license/"
+  ],
+  "authorization_note": "Architecture/policy is authorized. Live production remains fail-closed until the runtime readiness script verifies a zero-cost source plus FFmpeg; public release always remains human-approved."
+}
