@@ -1,185 +1,49 @@
-# CineForge Zero-Cost Video Production Architecture — 2026
+# CineForge — Zero-cost video production research and operating standard (2026)
 
-Status date: 2026-09-11
+## Scope
 
-## Objective
+This subsystem defines **zero external cash cost**, not “zero resource consumption.” Local generation may consume GPU time, electricity, storage, and operator time. The invariant is that CineForge cannot autonomously create a charge, buy credits, or switch to a paid service.
 
-Produce Facebook-ready vertical video while enforcing a hard external cash cost of **USD 0.00**. The system must never buy credits, upgrade a plan, or silently fall back to a paid provider.
+## Production architecture
 
-This document distinguishes **cash-free** from **resource-free**. Local models have zero API spend but still consume GPU time, electricity, storage, bandwidth, and operator time.
+The preferred real-video path is: trend brief → keyless Wikimedia Commons search or free Pexels/Pixabay API → per-asset rights/provenance gate → native-source-resolution gate → local FFmpeg edit/transcode → ffprobe QC → originality/context review → human release approval → separate publication action.
 
-## Production order
+Wikimedia Commons is keyless, but licensing is per asset. The implementation auto-allows a narrow set (CC0/Public Domain/CC BY) and rejects “license review needed.” CC BY-SA is supported only with explicit opt-in because derivatives/distribution can carry ShareAlike obligations. The MediaWiki Action API exposes `imageinfo`, including URL, size, MIME and extended metadata, so license and source dimensions are captured before download.
 
-### Tier 1 — real licensed footage + deterministic local composition
+Pexels and Pixabay remain useful redundant sources. Their free APIs require credentials and have rate limits, so API responses should be cached and normalized into the same provenance schema. A source must be at least 1080×1920 portrait to be labeled **native Full-HD vertical**; transcoding or upscaling never changes that source fact.
 
-Preferred production route when the requirement is "real video" rather than synthetic footage:
+## Local generative route
 
-1. Search Pexels API or Pixabay API.
-2. Select only source assets with physical dimensions of at least **1080 x 1920** and portrait orientation.
-3. Download the asset over HTTPS.
-4. Persist source URL, creator, license URL, retrieval time and SHA-256 in a provenance sidecar.
-5. Compose locally with FFmpeg.
-6. Run technical QC.
-7. Run originality/context/rights review.
-8. Require human release approval.
-9. Publication is a separate operation.
+Wan2.2 is the preferred current open local candidate because the official repository is Apache-2.0 and integrates with ComfyUI/Diffusers. Its official open T2V/I2V models support 480P/720P and TI2V-5B supports 720P at 24fps. Therefore CineForge authorizes it only as a native-720p source; any 1080p delivery is recorded as an upscale. High-end A14B inference can require very large VRAM, so actual runtime authorization requires hardware evidence, checkpoint digest pinning and QC.
 
-Pexels states that photos/videos can be used for free, modified, and shared on social media; its API is free and defaults to 200 requests/hour and 20,000/month. Pixabay permits free use and adaptation under its Content License, and its API exposes video search with a default 100 requests/60 seconds per API key.
+ComfyUI is cataloged as the local workflow orchestrator. It is not itself a model license grant: each checkpoint remains separately gated. Conditional-license models such as LTX-2.x and Hunyuan remain disabled for autonomous commercial routing until explicit legal/territorial attestation.
 
-Evidence:
-- https://www.pexels.com/license/
-- https://www.pexels.com/api/documentation/
-- https://help.pexels.com/hc/en-us/articles/47677890260761-Is-the-Pexels-API-free-to-use
-- https://pixabay.com/service/license-summary/
-- https://pixabay.com/api/docs/
+## Local audio and editorial stack
 
-### Tier 2 — local open models
+OpenAI Whisper is an MIT-licensed local ASR option for transcription/caption QC. Kokoro-82M is an Apache-2.0 local TTS option. FFmpeg is the canonical automated compositor; its exact build configuration must be recorded because optional GPL components can change distribution obligations. Kdenlive, Blender and OpenShot are manual zero-cash editorial fallbacks.
 
-For synthetic/AI footage, local inference is preferred over paid APIs only after hardware and license gates pass.
+## Security and supply chain
 
-#### Wan2.2 — preferred local candidate
+Provider downloads are HTTPS-only and must match provider-specific host allowlists. Redirects are revalidated. Downloads are size-capped, SHA-256 hashed, and accompanied by provenance sidecars. Catalog and manifest are packaged with the wheel and validated in CI outside the repository checkout. CI scans for obvious provider-secret patterns and uploads only JSON evidence, not third-party fixture media.
 
-Wan2.2 is the preferred local candidate because the official repository states that the models are Apache-2.0 licensed and that the project claims no rights over generated content. It supports text/video model variants and has ComfyUI/Diffusers integration.
+Benchmark evidence is JSON, not a toggle. Native-resolution attestations require provider ID, dimensions, a real SHA-256, `passed=true`, and `upscaled=false`. This prevents an operator from certifying native Full HD by setting a boolean.
 
-Production gates:
-- CUDA-capable runtime available.
-- Exact model/checkpoint pinned by digest.
-- Local installation reproducible.
-- Native-output benchmark completed.
-- Full-HD vertical QC passed without pretending an upscale is native generation.
-- Content safety and rights review passed.
+## SRE / FinOps gates
 
-Evidence: https://github.com/Wan-Video/Wan2.2
+Proposed service objectives for the real-footage production route: at least two independent source strategies in the catalog; hard external-cash debit tolerance of **$0.00**; ≥98% technical master-QC pass rate after a candidate is selected; no public post without human release approval; and deterministic fail-closed behavior when source, rights, runtime, or resolution evidence is missing.
 
-#### LTX-2.x — conditional, not auto-enabled
+## Current authorization boundaries
 
-LTX-2.x is open-access but its August 2026 community license is not an unconditional commercial-use grant. The license includes revenue thresholds and other commercial restrictions. Therefore CineForge requires an explicit license attestation before this route can enter production.
+Architecture and CI for the real-footage zero-cost route may be authorized independently of public publication. Local AI generation is not live-authorized until a connected GPU runtime is benchmarked. Native-1080 AI generation is specifically **not** authorized via Wan2.2 because its official open checkpoints are at most 720P. Publication remains human-approved even when generation and QC pass.
 
-Evidence: https://github.com/Lightricks/LTX-2/blob/main/LICENSE-2_x
+## Primary evidence registry
 
-#### HunyuanVideo 1.5 — conditional, not auto-enabled
-
-Hunyuan uses a community license with territorial/use restrictions. It must not be auto-enabled without legal and territorial review.
-
-Evidence: https://github.com/Tencent-Hunyuan/HunyuanVideo-1.5/blob/main/LICENSE
-
-#### CogVideoX / CogKit
-
-CogKit is Apache-2.0 tooling, but the exact selected video checkpoint can carry its own license. The checkpoint license, not only the inference code license, must pass the gate.
-
-Evidence: https://github.com/THUDM/CogKit
-
-### Tier 3 — free/freemium cloud tools
-
-These are convenience fallbacks, not production dependencies.
-
-#### Krea Free
-
-Krea advertises a $0 plan with 100 compute units/day and limited video access. The same pricing page lists a commercial license as a Basic-plan addition. Therefore the Free tier is **not auto-authorized for commercial/public production**; quota and rights must be verified per use.
-
-Evidence: https://www.krea.ai/features/ai-video-generator
-
-#### Runway Free
-
-Runway documents a one-time Free-plan allocation and changing model availability. A provider whose free quota can be permanently exhausted cannot satisfy an unattended zero-cost SLO, so it is never an automatic fallback.
-
-Evidence: https://help.runwayml.com/hc/en-us/articles/50404627334547-Free-plan-details
-
-#### Canva Free / CapCut free editing subset
-
-Useful for manual editing, captions and assembly when operators prefer a GUI. They are not part of the autonomous provider router because feature entitlements/assets can change and are harder to certify reproducibly than local FFmpeg.
-
-Evidence:
-- https://www.canva.com/video-editor/desktop-download/
-- https://www.capcut.com/features/free-ai-video-editor
-
-## Free local editors
-
-- **FFmpeg** — primary deterministic automation/composition/transcoding layer.
-- **Kdenlive** — GPL editor with no subscription/premium unlocks; manual editorial fallback.
-- **Blender VSE** — GPL software, free for any purpose, with a capable Video Sequence Editor and compositor.
-
-Evidence:
-- https://ffmpeg.org/legal.html
-- https://kdenlive.org/about/
-- https://www.blender.org/about/license/
-- https://www.blender.org/features/video-editing/
-
-## Resolution policy
-
-A 1080x1920 container is not enough to claim "real Full HD". CineForge records both:
-
-- `source_width/source_height`
-- `master_width/master_height`
-- whether the source was natively at least 1080x1920
-- whether any upscaling occurred
-
-For the **real-footage route**, a source below 1080x1920 is rejected when native Full-HD vertical is required.
-
-For an **AI local generator**, native Full-HD authorization requires a runtime benchmark. Upscaling a 720x1280 generation to 1080x1920 can be a valid delivery master, but it must be labeled `upscaled=true`; it does not satisfy the native-resolution gate.
-
-## Fail-closed FinOps policy
-
-Hard invariants:
-
-- `max_external_cash_cost_usd = 0.0`
-- `autonomous_purchase_allowed = false`
-- paid fallback = false
-- free-quota services are not auto-selected
-- no credit purchase, subscription upgrade or billing action may be initiated by the agent
-- local compute is tracked separately as an infrastructure cost even when API spend is zero
-
-## Rights and provenance
-
-Every downloaded stock clip must retain:
-
-- provider and asset id
-- page URL
-- contributor name when supplied
-- direct source URL
-- source dimensions
-- license URL
-- retrieval timestamp
-- SHA-256
-
-Recognizable people, property, trademarks, logos and sensitive contexts still require contextual rights review. A stock license does not erase privacy, publicity, trademark or misleading-endorsement risks.
-
-## Release gates
-
-A Facebook Reel is eligible for release only when all of these pass:
-
-1. zero-cash-cost source gate
-2. source-resolution gate
-3. provenance gate
-4. license/rights gate
-5. malware/file-safety gate
-6. codec/container gate
-7. 9:16 framing/safe-zone gate
-8. audio/loudness gate
-9. originality/context gate
-10. human approval gate
-
-Publication remains separate from generation and approval.
-
-## Runtime readiness
-
-Use:
-
-```bash
-PYTHONPATH=src python scripts/zero_cost_video_readiness.py
-```
-
-To require an immediately executable real-footage route:
-
-```bash
-PYTHONPATH=src python scripts/zero_cost_video_readiness.py --require-real-footage-ready
-```
-
-A real-footage route becomes executable when:
-
-- FFmpeg is installed; and
-- either `PEXELS_API_KEY` or `PIXABAY_API_KEY` is securely configured.
-
-Both API keys are free to obtain. Do not commit them to Git.
-
-A generated-video route additionally requires a certified local GPU/model runtime and a native-resolution benchmark.
+- Wikimedia Commons reuse guidance and MediaWiki `imageinfo` API documentation.
+- Pexels license and API documentation.
+- Pixabay Content License and API documentation.
+- Wan2.2 official GitHub repository and Apache-2.0 license.
+- ComfyUI official repository/API documentation.
+- OpenAI Whisper official repository/license.
+- Kokoro-82M Apache-2.0 model card.
+- FFmpeg legal/licensing documentation.
+- Kdenlive, Blender and OpenShot official project/license pages.
