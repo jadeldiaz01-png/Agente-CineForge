@@ -1,0 +1,34 @@
+name: nvidia-nim-connection-test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/nvidia-nim-connection-test.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Probe NVIDIA NIM safely
+        shell: bash
+        env:
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          NVIDIA_NIM_MODEL: ${{ vars.NVIDIA_NIM_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b' }}
+          NVIDIA_NIM_BASE_URL: ${{ vars.NVIDIA_NIM_BASE_URL || 'https://integrate.api.nvidia.com/v1' }}
+        run: |
+          set -euo pipefail
+          set +x
+          test -n "${NVIDIA_NIM_API_KEY:-}" || { echo 'SECRET_PRESENT=false'; exit 2; }
+          echo 'SECRET_PRESENT=true'
+          catalog=$(curl -sS --connect-timeout 10 --max-time 30 -o /tmp/models.json -w '%{http_code}' -H "Authorization: Bearer ${NVIDIA_NIM_API_KEY}" -H 'Accept: application/json' "${NVIDIA_NIM_BASE_URL%/}/models")
+          echo "CATALOG_HTTP=${catalog}"
+          infer=$(curl -sS --connect-timeout 10 --max-time 60 -o /tmp/infer.json -w '%{http_code}' -X POST -H "Authorization: Bearer ${NVIDIA_NIM_API_KEY}" -H 'Content-Type: application/json' --data "{\"model\":\"${NVIDIA_NIM_MODEL}\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with exactly OK.\"}],\"temperature\":0,\"max_tokens\":8}" "${NVIDIA_NIM_BASE_URL%/}/chat/completions")
+          echo "INFERENCE_HTTP=${infer}"
+          test "$catalog" = 200 -a "$infer" = 200
+          echo 'NVIDIA_NIM_CONNECTION=PASS'
