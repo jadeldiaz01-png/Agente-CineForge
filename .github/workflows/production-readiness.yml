@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 
 jobs:
   production-readiness:
@@ -32,6 +34,9 @@ jobs:
 
       - name: Compile source
         run: python -m compileall -q src tests scripts
+
+      - name: Validate registered video evidence
+        run: python scripts/validate_video_evidence.py
 
       - name: Run production-readiness manifest validator
         run: python scripts/validate_production_readiness.py
@@ -69,10 +74,25 @@ jobs:
               except md.PackageNotFoundError:
                   continue
               packages.append({'SPDXID':f'SPDXRef-Package-{name}','name':name,'versionInfo':dist.version,'downloadLocation':'NOASSERTION','filesAnalyzed':False})
-          doc={'spdxVersion':'SPDX-2.3','dataLicense':'CC0-1.0','SPDXID':'SPDXRef-DOCUMENT','name':'cineforge-ci-sbom','documentNamespace':f'https://jadeltechrd.com/spdx/{uuid.uuid4()}','creationInfo':{'creators':['Tool: jadel-cineforge-readiness'],'created':'2026-08-31T00:00:00Z'},'packages':packages}
+          doc={'spdxVersion':'SPDX-2.3','dataLicense':'CC0-1.0','SPDXID':'SPDXRef-DOCUMENT','name':'cineforge-ci-sbom','documentNamespace':f'https://jadeltechrd.com/spdx/{uuid.uuid4()}','creationInfo':{'creators':['Tool: jadel-cineforge-readiness'],'created':'2026-09-06T00:00:00Z'},'packages':packages}
           pathlib.Path('artifacts').mkdir(exist_ok=True)
           pathlib.Path('artifacts/sbom.spdx.json').write_text(json.dumps(doc,indent=2,sort_keys=True),encoding='utf-8')
           PY
+
+      - name: Build immutable readiness evidence bundle
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/readiness-evidence
+          cp config/production-readiness.json artifacts/readiness-evidence/
+          cp evidence/video/*.json artifacts/readiness-evidence/
+          cp artifacts/sbom.spdx.json artifacts/readiness-evidence/
+          (cd artifacts/readiness-evidence && sha256sum * > SHA256SUMS)
+          tar -C artifacts -czf artifacts/cineforge-readiness-evidence.tgz readiness-evidence
+
+      - name: Attest readiness evidence bundle
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        with:
+          subject-path: artifacts/cineforge-readiness-evidence.tgz
 
       - name: Upload readiness evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -80,5 +100,7 @@ jobs:
           name: cineforge-production-readiness-${{ github.sha }}
           path: |
             config/production-readiness.json
+            evidence/video/*.json
             artifacts/sbom.spdx.json
+            artifacts/cineforge-readiness-evidence.tgz
           if-no-files-found: error
