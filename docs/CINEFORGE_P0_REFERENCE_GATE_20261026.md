@@ -23,3 +23,9 @@ Use only a previously provisioned, backed-up, permission-restricted **persistent
 CI now produces an evidence TAR archive, a Sigstore provenance attestation and a GitHub CLI verification receipt, following a pinned `actions/attest` release. The standalone CI attestation is **not** permission to promote a video/publisher. The production readiness declaration remains `BLOCKED` until supported, independently verified evidence is attached for protected main, signatures, remote publication reconciliation, storage persistence and actual generative quality. Static documentation assertions cannot satisfy those external gates.
 
 TikTok status semantics follow the official August 2026 status API; `SEND_TO_USER_INBOX` and `PROCESSING_UPLOAD` are not public posts, and `PUBLISH_COMPLETE` needs a matching publicly available post ID for public visibility verification. Repeated dispatches remain prohibited while prior outcome is unknown.
+
+## Remote-status read-only verification
+
+`publication_reconciliation.youtube_status` now checks the YouTube `videos.list` status of a matching video ID, requiring both `uploadStatus=processed` and `privacyStatus=public`. `publication_reconciliation.tiktok_status` checks the official TikTok `/v2/post/publish/status/fetch/` endpoint and requires `PUBLISH_COMPLETE` with a non-empty `publicaly_available_post_id` (the field spelling is official). Inbox delivery, partial uploads, private videos, mismatched IDs, failed requests and exceptions cannot produce `CONFIRMED_PUBLIC`.
+
+These are **isolated read-only reconciliation functions**, not an automated publish worker. Real credential/account ownership, status-token authorization, event-to-intent ID linkage and persisted reconciliation have not been contract-tested; the production gate remains false. Never use a caller-supplied remote ID as sufficient evidence for the exact approved asset without joining it to the existing ledger receipt.
