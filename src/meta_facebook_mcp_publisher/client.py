@@ -82,10 +82,10 @@ class MetaFacebookClient:
 
         remote_id = str(raw.get("id")) if raw.get("id") is not None else None
         return PublishResult(
-            ok=bool(remote_id),
+            ok=False,
             platform="facebook",
             remote_id=remote_id,
-            status="CONFIRMED" if remote_id else "UNKNOWN",
+            status="DISPATCHED_UNVERIFIED" if remote_id else "UNKNOWN",
             raw_response=raw,
         )
 

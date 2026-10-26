@@ -24,6 +24,10 @@ on:
         required: true
         type: boolean
         default: false
+      approval_evidence:
+        description: "Human signed JSON approval path for exact video, caption and platforms"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -51,6 +55,8 @@ jobs:
 
       - name: Publish approved video
         env:
+          CINEFORGE_LIVE_PUBLISH_AUTHORIZED: ${{ vars.CINEFORGE_LIVE_PUBLISH_AUTHORIZED || 'false' }}
+          CINEFORGE_APPROVAL_HMAC_KEY: ${{ secrets.CINEFORGE_APPROVAL_HMAC_KEY }}
           META_GRAPH_VERSION: v26.0
           META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
           META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
@@ -83,4 +89,5 @@ jobs:
             --caption "${{ inputs.caption }}" \
             --platforms "${{ inputs.platforms }}" \
             --idempotency-key "${{ github.run_id }}-${{ github.run_attempt }}" \
+            --approval-evidence "${{ inputs.approval_evidence }}" \
             $FLAGS

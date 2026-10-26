@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
+from pathlib import Path
+
+from .release_attestation import inspect_mp4, verify_release, ReleaseDenied
+from .publish_ledger import PublishReservationDenied, reserve_publish_attempt
 
 from .models import PlatformPublishRequest, PublishRequest
 
@@ -9,6 +14,36 @@ from .models import PlatformPublishRequest, PublishRequest
 class PublishGateDecision:
     allowed: bool
     failed_gates: tuple[str, ...]
+
+
+def _release_gate(request: PublishRequest | PlatformPublishRequest, platform: str) -> bool:
+    """Verify at the direct connector boundary, not only in the CLI."""
+    if os.getenv("CINEFORGE_LIVE_PUBLISH_AUTHORIZED", "").lower() not in {"1", "true", "yes", "on"}:
+        return False
+    data = request.metadata or {}
+    platforms = data.get("release_platforms")
+    if not isinstance(platforms, list) or platform not in platforms:
+        return False
+    path = data.get("release_evidence")
+    if not isinstance(path, str) or not path:
+        return False
+    try:
+        media = inspect_mp4(request.video_path)
+        caption = request.description if isinstance(request, PublishRequest) else request.caption
+        verify_release(Path(path), media, caption, platforms,
+                       os.getenv("CINEFORGE_APPROVAL_HMAC_KEY", ""))
+        if os.getenv("CINEFORGE_DURABLE_LEDGER_CERTIFIED", "").lower() not in {"true", "1", "yes", "on"}:
+            return False
+        ledger_path = os.getenv("CINEFORGE_PUBLISH_LEDGER_PATH", "")
+        # GitHub-hosted runners and temp directories are ephemeral; never treat them as a LIVE ledger.
+        if not ledger_path.startswith("/var/lib/cineforge/"):
+            return False
+        account_id = request.page_id if isinstance(request, PublishRequest) else request.account_id
+        reserve_publish_attempt(Path(ledger_path), request.idempotency_key, platform,
+                                account_id, media["sha256"], caption)
+        return True
+    except (ReleaseDenied, PublishReservationDenied, OSError, ValueError):
+        return False
 
 
 def evaluate_publish_gates(request: PublishRequest) -> PublishGateDecision:
@@ -34,6 +69,8 @@ def evaluate_publish_gates(request: PublishRequest) -> PublishGateDecision:
         failed.append("IDEMPOTENCY_KEY_PRESENT")
     if request.is_reel and request.published_count_24h >= request.reels_daily_limit:
         failed.append("REELS_RATE_LIMIT_ALLOWED")
+    if not failed and not _release_gate(request, "facebook"):
+        failed.append("SIGNED_CONTENT_BOUND_RELEASE")
 
     return PublishGateDecision(allowed=not failed, failed_gates=tuple(failed))
 
@@ -63,5 +100,7 @@ def evaluate_platform_publish_gates(request: PlatformPublishRequest) -> PublishG
         failed.append("RATE_LIMIT_ALLOWED")
     if not request.public_posting_audited:
         failed.append("PUBLIC_POSTING_AUDITED")
+    if not failed and not _release_gate(request, request.platform.value):
+        failed.append("SIGNED_CONTENT_BOUND_RELEASE")
 
     return PublishGateDecision(allowed=not failed, failed_gates=tuple(failed))

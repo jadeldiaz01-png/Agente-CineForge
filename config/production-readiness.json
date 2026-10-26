@@ -25,13 +25,47 @@
     "live_or_sandbox_contract_publish_evidence": false,
     "protected_default_branch": false,
     "verified_head_signature": false,
-    "artifact_provenance_attestation": false
+    "artifact_provenance_attestation": false,
+    "persistent_publish_ledger_certified": false,
+    "live_remote_publication_reconciliation_certified": false,
+    "generation_model_quality_benchmark_certified": false
   },
   "production_invariant": "PRODUCTION_READY requires every gate true and zero blockers; publication remains disabled otherwise.",
   "blockers": [
-    {"owner": "human_admin", "id": "credentials", "reason": "Authorize and configure managed platform credentials and account IDs."},
-    {"owner": "platform", "id": "posting_reviews", "reason": "Verify current platform public-posting review/audit requirements for every platform enabled in production."},
-    {"owner": "human_admin", "id": "repository_governance", "reason": "Activate protected main and establish verified signed promotion flow."},
-    {"owner": "evidence", "id": "contract_publish", "reason": "Capture sandbox/live contract evidence after credentials and platform permissions are authorized."}
+    {
+      "owner": "human_admin",
+      "id": "credentials",
+      "reason": "Authorize and configure managed platform credentials and account IDs."
+    },
+    {
+      "owner": "platform",
+      "id": "posting_reviews",
+      "reason": "Verify current platform public-posting review/audit requirements for every platform enabled in production."
+    },
+    {
+      "owner": "human_admin",
+      "id": "repository_governance",
+      "reason": "Activate protected main and establish verified signed promotion flow."
+    },
+    {
+      "owner": "evidence",
+      "id": "contract_publish",
+      "reason": "Capture sandbox/live contract evidence after credentials and platform permissions are authorized."
+    },
+    {
+      "owner": "infrastructure",
+      "id": "durable_idempotency",
+      "reason": "Certify a persistent shared transaction ledger and prove exact-intent deduplication across restarts before any live publish."
+    },
+    {
+      "owner": "platform",
+      "id": "remote_confirmation",
+      "reason": "Prove platform-specific remote post/visibility reconciliation and contract tests; upload acknowledgements are insufficient."
+    },
+    {
+      "owner": "evidence",
+      "id": "generative_quality",
+      "reason": "Generate and independently review actual model-produced video on the target hardware; the local FFmpeg sample is not a generative quality benchmark."
+    }
   ]
 }
