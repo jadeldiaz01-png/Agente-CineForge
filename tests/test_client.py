@@ -55,7 +55,8 @@ def test_client_posts_to_graph_video_endpoint(tmp_path: Path) -> None:
 
     result = MetaFacebookClient(graph_version="v26.0", transport=transport).publish_video(request)
 
-    assert result.ok
+    assert not result.ok
+    assert result.status == "DISPATCHED_UNVERIFIED"
     assert result.remote_id == "987654321"
     assert captured["url"] == "https://graph-video.facebook.com/v26.0/123/videos"
     assert captured["fields"]["description"] == "caption"

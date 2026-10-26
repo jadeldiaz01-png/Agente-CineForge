@@ -23,7 +23,8 @@ def _default_json_transport(
     with urlrequest.urlopen(req, timeout=90) as response:
         content = response.read()
         result = json.loads(content.decode("utf-8")) if content else {}
-        return dict(result, _http_status=response.status)
+        return dict(result, _http_status=response.status,
+                    headers={"location": response.headers.get("Location", "")})
 
 
 class YouTubeClient:
