@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from .release_attestation import inspect_mp4, verify_release, ReleaseDenied
 
 from .client import MetaFacebookClient
 from .models import Platform, PlatformCapability, PlatformPublishRequest, PublishRequest, PublishResult
@@ -33,15 +34,37 @@ def run() -> int:
     parser.add_argument("--human-approved", action="store_true")
     parser.add_argument("--video-qc-passed", action="store_true")
     parser.add_argument("--originality-reviewed", action="store_true")
+    parser.add_argument("--approval-evidence", default="", help="Separately signed JSON approval file for exact asset")
     args = parser.parse_args()
 
     video_path = Path(args.video)
     selected = [Platform(item.strip()) for item in args.platforms.split(",") if item.strip()]
+    if not selected or len(set(selected)) != len(selected):
+        print("PLATFORM_SELECTION_INVALID")
+        return 2
 
+    try:
+        media = inspect_mp4(video_path)
+    except ReleaseDenied as exc:
+        print(f"VIDEO_QC_BLOCKED: {exc}")
+        return 2
     if args.dry_run:
         for platform in selected:
-            _print_result(PublishResult(True, platform.value, status="DRY_RUN_CONFIRMED", remote_id="dry-run"))
+            _print_result(PublishResult(True, platform.value, status="DRY_RUN_VALIDATED"))
+        print(f"MEDIA_SHA256={media['sha256']}")
         return 0
+    if not _env_bool("CINEFORGE_LIVE_PUBLISH_AUTHORIZED"):
+        print("LIVE_BLOCKED: authorization flag missing")
+        return 2
+    if not (args.human_approved and args.video_qc_passed and args.originality_reviewed):
+        print("LIVE_BLOCKED: manual gates missing")
+        return 2
+    try:
+        verify_release(Path(args.approval_evidence), media, args.caption,
+                       [p.value for p in selected], os.getenv("CINEFORGE_APPROVAL_HMAC_KEY", ""))
+    except ReleaseDenied as exc:
+        print(f"LIVE_BLOCKED: {exc}")
+        return 2
 
     capabilities = {
         Platform.FACEBOOK: PlatformCapability(
