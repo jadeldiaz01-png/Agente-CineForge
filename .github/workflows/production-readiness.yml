@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 
 jobs:
   production-readiness:
@@ -62,6 +64,7 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import importlib.metadata as md, json, pathlib, uuid
+          from datetime import datetime, timezone
           packages=[]
           for name in ('meta-facebook-mcp-publisher','pytest'):
               try:
@@ -69,10 +72,43 @@ jobs:
               except md.PackageNotFoundError:
                   continue
               packages.append({'SPDXID':f'SPDXRef-Package-{name}','name':name,'versionInfo':dist.version,'downloadLocation':'NOASSERTION','filesAnalyzed':False})
-          doc={'spdxVersion':'SPDX-2.3','dataLicense':'CC0-1.0','SPDXID':'SPDXRef-DOCUMENT','name':'cineforge-ci-sbom','documentNamespace':f'https://jadeltechrd.com/spdx/{uuid.uuid4()}','creationInfo':{'creators':['Tool: jadel-cineforge-readiness'],'created':'2026-08-31T00:00:00Z'},'packages':packages}
+          doc={'spdxVersion':'SPDX-2.3','dataLicense':'CC0-1.0','SPDXID':'SPDXRef-DOCUMENT','name':'cineforge-ci-sbom','documentNamespace':f'https://jadeltechrd.com/spdx/{uuid.uuid4()}','creationInfo':{'creators':['Tool: jadel-cineforge-readiness'],'created':datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')},'packages':packages}
           pathlib.Path('artifacts').mkdir(exist_ok=True)
           pathlib.Path('artifacts/sbom.spdx.json').write_text(json.dumps(doc,indent=2,sort_keys=True),encoding='utf-8')
           PY
+
+      - name: Build immutable readiness evidence archive
+        run: |
+          set -euo pipefail
+          tar --format=ustar -cf artifacts/cineforge-readiness-evidence.tar \
+            config/production-readiness.json \
+            artifacts/sbom.spdx.json \
+            src/meta_facebook_mcp_publisher/publish_ledger.py \
+            src/meta_facebook_mcp_publisher/gates.py \
+            src/meta_facebook_mcp_publisher/release_attestation.py
+          test -s artifacts/cineforge-readiness-evidence.tar
+
+      - name: Attest supply-chain provenance
+        id: evidence_attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: artifacts/cineforge-readiness-evidence.tar
+
+      - name: Verify provenance against this workflow and commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ATTEST_BUNDLE: ${{ steps.evidence_attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -s "$ATTEST_BUNDLE"
+          gh attestation verify artifacts/cineforge-readiness-evidence.tar \
+            -R "$GITHUB_REPOSITORY" \
+            --bundle "$ATTEST_BUNDLE" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/production-readiness.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --format json > artifacts/provenance-verification.json
+          jq -e 'length > 0' artifacts/provenance-verification.json > /dev/null
+          echo 'CINEFORGE_PROVENANCE_VERIFY=PASS'
 
       - name: Upload readiness evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -81,4 +117,6 @@ jobs:
           path: |
             config/production-readiness.json
             artifacts/sbom.spdx.json
+            artifacts/cineforge-readiness-evidence.tar
+            artifacts/provenance-verification.json
           if-no-files-found: error

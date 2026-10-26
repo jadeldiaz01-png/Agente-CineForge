@@ -17,3 +17,9 @@ This work hardens CineForge without authorizing LIVE publishing or spending. Sou
 The live publish connector gate now atomically reserves a unique idempotency key **and** content+account+platform SHA-256 in a SQLite WAL ledger *before* any external call. A duplicate or uncertain prior attempt stays blocked for human reconciliation. No autonomous retry or re-use of the same video/caption/target is permitted.
 
 Use only a previously provisioned, backed-up, permission-restricted **persistent** volume at `/var/lib/cineforge/`; set `CINEFORGE_PUBLISH_LEDGER_PATH` and `CINEFORGE_DURABLE_LEDGER_CERTIFIED=true` only after a separate human storage certification. GitHub-hosted Actions is ephemeral and cannot satisfy that condition. For multiple replicas or hosts, this local SQLite ledger is NOT a global transactional authority: use a shared transactional datastore before LIVE. SQLite tests certify atomicity only; production persistence and external platform reconciliation remain unverified.
+
+## CI provenance and corrected production scope
+
+CI now produces an evidence TAR archive, a Sigstore provenance attestation and a GitHub CLI verification receipt, following a pinned `actions/attest` release. The standalone CI attestation is **not** permission to promote a video/publisher. The production readiness declaration remains `BLOCKED` until supported, independently verified evidence is attached for protected main, signatures, remote publication reconciliation, storage persistence and actual generative quality. Static documentation assertions cannot satisfy those external gates.
+
+TikTok status semantics follow the official August 2026 status API; `SEND_TO_USER_INBOX` and `PROCESSING_UPLOAD` are not public posts, and `PUBLISH_COMPLETE` needs a matching publicly available post ID for public visibility verification. Repeated dispatches remain prohibited while prior outcome is unknown.
