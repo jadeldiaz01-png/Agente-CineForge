@@ -138,7 +138,7 @@ def run() -> int:
                 access_token=os.getenv(account_env[1], ""),
                 account_id=os.getenv(account_env[0], ""),
                 daily_limit=int(os.getenv(account_env[2], "30")),
-                public_posting_audited=_env_bool("TIKTOK_PUBLIC_POSTING_AUDITED", True)
+                public_posting_audited=_env_bool("TIKTOK_PUBLIC_POSTING_AUDITED", False)
                 if platform == Platform.TIKTOK
                 else True,
             )
