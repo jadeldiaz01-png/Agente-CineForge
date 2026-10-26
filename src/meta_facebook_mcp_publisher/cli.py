@@ -116,6 +116,8 @@ def run() -> int:
                 publishing_enabled=_env_bool("META_PUBLISHING_ENABLED"),
                 published_count_24h=int(os.getenv("META_PUBLISHED_COUNT_24H", "0")),
                 reels_daily_limit=int(os.getenv("META_REELS_DAILY_LIMIT", "30")),
+                metadata={"release_evidence": args.approval_evidence,
+                          "release_platforms": sorted(p.value for p in selected)},
             )
             results.append(MetaFacebookClient(os.getenv("META_GRAPH_VERSION", "v26.0")).publish_video(req))
             continue
@@ -141,6 +143,8 @@ def run() -> int:
                 public_posting_audited=_env_bool("TIKTOK_PUBLIC_POSTING_AUDITED", False)
                 if platform == Platform.TIKTOK
                 else True,
+                metadata={"release_evidence": args.approval_evidence,
+                          "release_platforms": sorted(p.value for p in selected)},
             )
         ]
         results.extend(publisher.publish_many(requests))

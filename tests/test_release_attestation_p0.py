@@ -12,6 +12,7 @@ import pytest
 
 from meta_facebook_mcp_publisher import release_attestation as release
 from meta_facebook_mcp_publisher.cli import run
+from meta_facebook_mcp_publisher import gates
 from meta_facebook_mcp_publisher.models import Platform, PlatformPublishRequest
 from meta_facebook_mcp_publisher.platform_clients import YouTubeClient, TikTokClient, XClient
 
@@ -95,7 +96,8 @@ def _req(tmp_path,platform):
                                   publishing_enabled=True,access_token="token",account_id="account")
 
 
-def test_youtube_requires_final_binary_put(tmp_path):
+def test_youtube_requires_final_binary_put(tmp_path, monkeypatch):
+    monkeypatch.setattr(gates, "_release_gate", lambda *args: True)
     calls=[]
     def transport(method,url,payload,bytes_,headers):
         calls.append(method)
@@ -107,7 +109,8 @@ def test_youtube_requires_final_binary_put(tmp_path):
     assert out.ok and out.status=="UPLOAD_CONFIRMED" and calls==["POST","PUT"]
 
 
-def test_youtube_rejects_session_only_and_untrusted_host(tmp_path):
+def test_youtube_rejects_session_only_and_untrusted_host(tmp_path, monkeypatch):
+    monkeypatch.setattr(gates, "_release_gate", lambda *args: True)
     def untrusted(method,url,payload,bytes_,headers):
         return {"headers":{"location":"https://attacker.invalid/upload"}}
     assert not YouTubeClient(transport=untrusted).publish_video(_req(tmp_path,Platform.YOUTUBE)).ok
@@ -116,7 +119,8 @@ def test_youtube_rejects_session_only_and_untrusted_host(tmp_path):
     assert not YouTubeClient(transport=unconfirmed).publish_video(_req(tmp_path,Platform.YOUTUBE)).ok
 
 
-def test_tiktok_never_treats_upload_as_published(tmp_path):
+def test_tiktok_never_treats_upload_as_published(tmp_path, monkeypatch):
+    monkeypatch.setattr(gates, "_release_gate", lambda *args: True)
     calls=[]
     def transport(method,url,payload,bytes_,headers):
         calls.append(method)
@@ -127,10 +131,19 @@ def test_tiktok_never_treats_upload_as_published(tmp_path):
     assert calls==["POST","PUT"] and not res.ok and res.status=="DISPATCHED_UNVERIFIED"
 
 
-def test_x_not_sent_without_upload_protocol(tmp_path):
+def test_x_not_sent_without_upload_protocol(tmp_path, monkeypatch):
+    monkeypatch.setattr(gates, "_release_gate", lambda *args: True)
     calls=[]
     def transport(*args):
         calls.append(args)
         return {"id":"forged"}
     res=XClient(transport=transport).publish_video(_req(tmp_path,Platform.X))
     assert not res.ok and res.status=="BLOCKED_BY_POLICY" and calls==[]
+
+
+def test_direct_connector_cannot_bypass_signed_release(tmp_path):
+    request=_req(tmp_path,Platform.YOUTUBE)
+    result=YouTubeClient(transport=lambda *a: {"id":"forged"}).publish_video(request)
+    assert not result.ok
+    assert result.status=="BLOCKED_BY_POLICY"
+    assert "SIGNED_CONTENT_BOUND_RELEASE" in (result.error or "")

@@ -26,7 +26,7 @@ class PublishRequest:
     is_reel: bool = True
     published_count_24h: int = 0
     reels_daily_limit: int = 30
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -44,7 +44,7 @@ class PlatformPublishRequest:
     published_count_24h: int = 0
     daily_limit: int = 30
     public_posting_audited: bool = True
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
