@@ -11,3 +11,9 @@ This work hardens CineForge without authorizing LIVE publishing or spending. Sou
 - Security boundary: the CLI AND direct connector gate now validate the content-bound attestation independently. No ungoverned calls allowed without a signed release. Production hardening still requires persistent idempotency and account-level rate-limit reconciliation.
 - Reference promotional sample is original 24-second vector motion graphics with synthesized audio, not a generative video model's output. Separate MP4, storyboard and QC/visual review artifacts are delivered in the conversation; they do not themselves authorize release.
 - Production GO/NO-GO remains NO-GO until human/platform gates in config/production-readiness.json and external status checks are satisfied.
+
+## P0 durable-at-most-once protection
+
+The live publish connector gate now atomically reserves a unique idempotency key **and** content+account+platform SHA-256 in a SQLite WAL ledger *before* any external call. A duplicate or uncertain prior attempt stays blocked for human reconciliation. No autonomous retry or re-use of the same video/caption/target is permitted.
+
+Use only a previously provisioned, backed-up, permission-restricted **persistent** volume at `/var/lib/cineforge/`; set `CINEFORGE_PUBLISH_LEDGER_PATH` and `CINEFORGE_DURABLE_LEDGER_CERTIFIED=true` only after a separate human storage certification. GitHub-hosted Actions is ephemeral and cannot satisfy that condition. For multiple replicas or hosts, this local SQLite ledger is NOT a global transactional authority: use a shared transactional datastore before LIVE. SQLite tests certify atomicity only; production persistence and external platform reconciliation remain unverified.
