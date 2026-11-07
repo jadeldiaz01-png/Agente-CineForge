@@ -29,8 +29,7 @@ Lectura de GitHub 2026-11-07: main SHA fb703aa013042ba6e8a0807068c27b9d9a5fabe4.
 Ruleset 26164666, cineforge-protected-main-p0, activo, aplica a
 default branch, bloquea borrado y non-fast-forward, exige pull request
 y status production-readiness con strict policy. Sin bypass actors.
-ATENCIÓN: required_approving_review_count=0. El check específico
-el check del job `ffmpeg-real-video` (workflow `clip-intelligence-av-e2e`) no aparece como required en el ruleset vigente.
+ATENCIÓN: required_approving_review_count=0. El job `ffmpeg-real-video` del workflow específico está sujeto a filtros de rutas; NO debe añadirse como required global mientras sea condicional. En este PR, la prueba FFmpeg ahora también es obligatoria dentro de `production-readiness` (que sí es un check requerido). La prueba separada sirve como evidencia adicional.
 PR #5 y PR #6 siguen DRAFT / SIN MERGE.
 
 Pendiente administrador: exigir revisión independiente, incluir prueba
