@@ -25,6 +25,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install mandatory FFmpeg audiovisual test dependency
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
       - name: Install controlled test toolchain
         run: |
           set -euo pipefail
@@ -36,8 +44,10 @@ jobs:
       - name: Run production-readiness manifest validator
         run: python scripts/validate_production_readiness.py
 
-      - name: Run unit integration and adversarial tests
-        run: python -m pytest -q
+      - name: Run unit integration and mandatory real audiovisual tests
+        env:
+          CINEFORGE_REQUIRE_AV_E2E: "1"
+        run: python -m pytest -q -rs
 
       - name: Require immutable third-party Actions
         run: |
