@@ -6,6 +6,7 @@ on:
     paths:
       - "src/meta_facebook_mcp_publisher/clip_*.py"
       - "tests/test_clip_intelligence.py"
+      - "tests/test_clip_render.py"
       - "docs/CLIP_INTELLIGENCE_INTEGRATION_20261107.md"
       - ".github/workflows/clip-intelligence-av-e2e.yml"
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - "src/meta_facebook_mcp_publisher/clip_*.py"
       - "tests/test_clip_intelligence.py"
+      - "tests/test_clip_render.py"
       - ".github/workflows/clip-intelligence-av-e2e.yml"
 
 permissions:
@@ -51,6 +53,6 @@ jobs:
           CINEFORGE_REQUIRE_AV_E2E: "1"
         run: |
           set -euo pipefail
-          python -m compileall -q src/meta_facebook_mcp_publisher/clip_intelligence.py src/meta_facebook_mcp_publisher/clip_cli.py
-          python -m pytest -q -rs tests/test_clip_intelligence.py
+          python -m compileall -q src/meta_facebook_mcp_publisher/clip_intelligence.py src/meta_facebook_mcp_publisher/clip_cli.py src/meta_facebook_mcp_publisher/clip_render.py src/meta_facebook_mcp_publisher/clip_render_cli.py
+          python -m pytest -q -rs tests/test_clip_intelligence.py tests/test_clip_render.py
           echo "CINEFORGE_REAL_AV_E2E=PASS"
