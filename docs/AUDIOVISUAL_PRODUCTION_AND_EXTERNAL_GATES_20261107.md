@@ -30,7 +30,7 @@ Ruleset 26164666, cineforge-protected-main-p0, activo, aplica a
 default branch, bloquea borrado y non-fast-forward, exige pull request
 y status production-readiness con strict policy. Sin bypass actors.
 ATENCIÓN: required_approving_review_count=0. El check específico
-clip-intelligence-av-e2e no aparece como required en el ruleset vigente.
+el check del job `ffmpeg-real-video` (workflow `clip-intelligence-av-e2e`) no aparece como required en el ruleset vigente.
 PR #5 y PR #6 siguen DRAFT / SIN MERGE.
 
 Pendiente administrador: exigir revisión independiente, incluir prueba
