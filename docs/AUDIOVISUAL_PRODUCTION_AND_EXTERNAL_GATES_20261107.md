@@ -32,9 +32,7 @@ y status production-readiness con strict policy. Sin bypass actors.
 ATENCIÓN: required_approving_review_count=0. El job `ffmpeg-real-video` del workflow específico está sujeto a filtros de rutas; NO debe añadirse como required global mientras sea condicional. En este PR, la prueba FFmpeg ahora también es obligatoria dentro de `production-readiness` (que sí es un check requerido). La prueba separada sirve como evidencia adicional.
 PR #5 y PR #6 siguen DRAFT / SIN MERGE.
 
-Pendiente administrador: exigir revisión independiente, incluir prueba
-de FFmpeg en los requisitos apropiados y volver a verificar la configuración.
-Estado protegido no equivale a revisión humana independiente.
+Política del propietario: solo reconocer revisión automática de **Codex** como revisión de código. Activar `Automatic review` en la configuración Codex del repositorio y elegir `Review trigger` para cada push; ya se solicitaron revisiones con `@codex review` sobre los dos PR. No dar por recibida aprobación formal `APPROVED` cuando Codex solo publica `COMMENTED` o reacciona. El job requerido `production-readiness` ya exige pruebas FFmpeg en este PR. Los gates externos de producción y la aprobación del contenido antes de publicar son controles distintos.
 
 ## Conectores de redes — BLOQUEADO
 
@@ -78,7 +76,7 @@ de cuenta + ledger persistente y reconciliación remota antes de habilitarse.
 
 ## Evidencia CI
 
-Exigir production-readiness y clip-intelligence-av-e2e sobre HEAD exacto.
+Exigir el job protegido `production-readiness` sobre HEAD exacto (incluye FFmpeg E2E). Ejecutar el workflow separado `clip-intelligence-av-e2e` como evidencia adicional; está filtrado por rutas y no debe configurarse globalmente como required.
 Prueba especializada instala ffmpeg/ffprobe, genera media audiovisual real,
 verifica codificación, SHA-256 y denegaciones adversariales. Estas pruebas
 no certifican fuente real propia, contenido generado por un modelo ni
