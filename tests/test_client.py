@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from meta_facebook_mcp_publisher import MetaFacebookClient, PublishRequest
+from meta_facebook_mcp_publisher import gates
 
 
 def test_client_does_not_call_transport_when_blocked(tmp_path: Path) -> None:
@@ -29,7 +30,8 @@ def test_client_does_not_call_transport_when_blocked(tmp_path: Path) -> None:
     assert calls == []
 
 
-def test_client_posts_to_graph_video_endpoint(tmp_path: Path) -> None:
+def test_client_posts_to_graph_video_endpoint(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(gates, "_release_gate", lambda *args: True)
     video = tmp_path / "video.mp4"
     video.write_bytes(b"fake mp4 for client test")
     captured = {}
@@ -55,7 +57,8 @@ def test_client_posts_to_graph_video_endpoint(tmp_path: Path) -> None:
 
     result = MetaFacebookClient(graph_version="v26.0", transport=transport).publish_video(request)
 
-    assert result.ok
+    assert not result.ok
+    assert result.status == "DISPATCHED_UNVERIFIED"
     assert result.remote_id == "987654321"
     assert captured["url"] == "https://graph-video.facebook.com/v26.0/123/videos"
     assert captured["fields"]["description"] == "caption"

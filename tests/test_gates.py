@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from meta_facebook_mcp_publisher import gates
 from meta_facebook_mcp_publisher.gates import evaluate_publish_gates
 from meta_facebook_mcp_publisher.models import PublishRequest
 
@@ -26,7 +27,8 @@ def test_blocks_without_human_approval(tmp_path: Path) -> None:
     assert "HUMAN_APPROVED" in decision.failed_gates
 
 
-def test_allows_when_required_gates_pass(tmp_path: Path) -> None:
+def test_allows_when_required_gates_pass(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(gates, "_release_gate", lambda *args: True)
     video = tmp_path / "video.mp4"
     video.write_bytes(b"fake mp4 for policy test")
 

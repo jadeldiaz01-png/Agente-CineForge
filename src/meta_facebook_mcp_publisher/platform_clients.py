@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Callable
+from urllib.parse import urlparse
 from urllib import request as urlrequest
 
 from .gates import evaluate_platform_publish_gates
@@ -20,7 +21,10 @@ def _default_json_transport(
     data = json.dumps(payload).encode("utf-8") if payload else file_bytes
     req = urlrequest.Request(url, data=data, method=method, headers=headers)
     with urlrequest.urlopen(req, timeout=90) as response:
-        return json.loads(response.read().decode("utf-8"))
+        content = response.read()
+        result = json.loads(content.decode("utf-8")) if content else {}
+        return dict(result, _http_status=response.status,
+                    headers={"location": response.headers.get("Location", "")})
 
 
 class YouTubeClient:
@@ -43,10 +47,25 @@ class YouTubeClient:
             },
             "status": {"privacyStatus": request.metadata.get("privacy_status", "private")},
         }
-        headers = {"Authorization": f"Bearer {request.access_token}", "Content-Type": "application/json"}
-        raw = self.transport("POST", "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", payload, None, headers)
-        remote_id = raw.get("id") or raw.get("headers", {}).get("location")
-        return PublishResult(bool(remote_id), self.platform.value, str(remote_id) if remote_id else None, "CONFIRMED" if remote_id else "UNKNOWN", raw_response=raw)
+        headers = {"Authorization": f"Bearer {request.access_token}", "Content-Type": "application/json",
+                   "X-Upload-Content-Type": "video/mp4",
+                   "X-Upload-Content-Length": str(request.video_path.stat().st_size)}
+        try:
+            init = self.transport("POST", "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", payload, None, headers)
+            location = str((init.get("headers") or {}).get("location", ""))
+            parsed = urlparse(location)
+            if parsed.scheme != "https" or parsed.hostname != "www.googleapis.com":
+                return PublishResult(False, self.platform.value, status="UNKNOWN", error="YOUTUBE_UPLOAD_SESSION_INVALID")
+            video = request.video_path.read_bytes()
+            complete = self.transport("PUT", location, {}, video,
+                                      {"Authorization": f"Bearer {request.access_token}", "Content-Type": "video/mp4",
+                                       "Content-Length": str(len(video))})
+            rid = complete.get("id")
+            return PublishResult(bool(rid), self.platform.value, str(rid) if rid else None,
+                                 "UPLOAD_CONFIRMED" if rid else "UNKNOWN",
+                                 None if rid else "YOUTUBE_FINAL_UPLOAD_NOT_CONFIRMED", complete)
+        except Exception:
+            return PublishResult(False, self.platform.value, status="UNKNOWN", error="YOUTUBE_UPLOAD_OUTCOME_UNKNOWN")
 
 
 class TikTokClient:
@@ -78,7 +97,24 @@ class TikTokClient:
         headers = {"Authorization": f"Bearer {request.access_token}", "Content-Type": "application/json; charset=UTF-8"}
         raw = self.transport("POST", "https://open.tiktokapis.com/v2/post/publish/video/init/", payload, None, headers)
         remote_id = raw.get("data", {}).get("publish_id")
-        return PublishResult(bool(remote_id), self.platform.value, str(remote_id) if remote_id else None, "DISPATCHED" if remote_id else "UNKNOWN", raw_response=raw)
+        upload_url = str(raw.get("data", {}).get("upload_url", ""))
+        parsed = urlparse(upload_url)
+        if not remote_id or parsed.scheme != "https" or parsed.hostname != "open-upload.tiktokapis.com":
+            return PublishResult(False, self.platform.value, status="UNKNOWN", error="TIKTOK_UPLOAD_URL_INVALID")
+        size = request.video_path.stat().st_size
+        if not 0 < size <= 64 * 1024 * 1024:
+            return PublishResult(False, self.platform.value, status="BLOCKED_BY_POLICY", error="TIKTOK_CHUNKED_UPLOAD_NOT_CERTIFIED")
+        try:
+            upload = self.transport("PUT", upload_url, {}, request.video_path.read_bytes(),
+                                    {"Content-Type": "video/mp4", "Content-Length": str(size),
+                                     "Content-Range": f"bytes 0-{size-1}/{size}"})
+        except Exception:
+            return PublishResult(False, self.platform.value, status="UNKNOWN", error="TIKTOK_UPLOAD_OUTCOME_UNKNOWN")
+        if upload.get("_http_status") != 201:
+            return PublishResult(False, self.platform.value, status="UNKNOWN", error="TIKTOK_UPLOAD_NOT_CONFIRMED")
+        # HTTP 201 is an upload transfer acknowledgment, NOT public posting confirmation.
+        return PublishResult(False, self.platform.value, str(remote_id), "DISPATCHED_UNVERIFIED",
+                             "TIKTOK_STATUS_RECONCILIATION_REQUIRED", upload)
 
 
 class XClient:
@@ -93,6 +129,9 @@ class XClient:
             return PublishResult(False, self.platform.value, status="BLOCKED_BY_POLICY", error=",".join(decision.failed_gates))
 
         headers = {"Authorization": f"Bearer {request.access_token}", "Content-Type": "application/json"}
+        # No APPEND, FINALIZE or remote processing verification exists yet.
+        return PublishResult(False, self.platform.value, status="BLOCKED_BY_POLICY",
+                             error="X_VIDEO_UPLOAD_NOT_CERTIFIED")
         init_payload = {
             "media_type": "video/mp4",
             "media_category": "tweet_video",

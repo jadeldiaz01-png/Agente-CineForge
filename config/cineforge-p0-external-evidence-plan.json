@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-10-26",
+  "mode": "PREPARE_ONLY",
+  "decision": "BLOCKED",
+  "max_spend_usd": 0,
+  "dependencies": [
+    {
+      "id": "main_ruleset",
+      "state": "OPEN",
+      "evidence": [
+        "active main ruleset",
+        "pull request required",
+        "production-readiness required",
+        "no delete/force push"
+      ]
+    },
+    {
+      "id": "persistent_ledger",
+      "state": "OPEN",
+      "evidence": [
+        "durable volume",
+        "reboot/backups",
+        "concurrent anti-duplicate",
+        "remote receipt binding"
+      ]
+    },
+    {
+      "id": "platform_permissions",
+      "state": "OPEN",
+      "evidence": [
+        "reviewed OAuth grants",
+        "account ownership",
+        "platform audit"
+      ]
+    },
+    {
+      "id": "contract_tests",
+      "state": "OPEN",
+      "evidence": [
+        "exact-asset human release",
+        "approved controlled test",
+        "remote completion status",
+        "idempotency"
+      ]
+    },
+    {
+      "id": "generative_quality",
+      "state": "OPEN",
+      "evidence": [
+        "license",
+        "model digest",
+        "GPU benchmark",
+        "blind review videos"
+      ]
+    }
+  ]
+}
