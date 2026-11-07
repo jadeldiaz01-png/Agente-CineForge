@@ -83,6 +83,8 @@ def start(root: Path) -> dict:
     try:
         intent = reserve_publish_attempt(db, key, "probe_only", "local_verification",
                                          "0" * 64, "synthetic receipt, never publish")
+        # Enforce private evidence permissions regardless of host umask.
+        db.chmod(0o600)
         payload = {
             "schema_version": 1,
             "kind": "cineforge.same_host_reboot_probe",
