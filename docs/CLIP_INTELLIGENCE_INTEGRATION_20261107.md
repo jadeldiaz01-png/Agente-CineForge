@@ -1,8 +1,8 @@
 # CineForge Clip Intelligence — integration from Jadel Video AI PoC
 
 **Scope:** quantitative offline interval discovery. **State:** PREPARE_ONLY.
-This change is layered on top of CineForge's P0 fail-closed publisher PR #5.
-It does not modify social publishing connectors, their credentials, payment flows,
+This change is independent of CineForge's P0 fail-closed publisher PR #5,
+so it can be reviewed without including that PR's unmerged changes. It does not modify social publishing connectors, their credentials, payment flows,
 the website, or production configuration.
 
 ## Why this architecture
