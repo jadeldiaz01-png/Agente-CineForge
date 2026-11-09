@@ -9,6 +9,9 @@ description = "Fail-closed Meta/Facebook Page video publisher scaffold for agent
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+youtube-mcp = ["mcp>=2,<3"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
