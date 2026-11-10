@@ -40,6 +40,20 @@ jobs:
           PYTHONPATH: src
           YOUTUBE_READONLY_ACCESS_TOKEN: ""
         run: python -m unittest discover -s tests -p 'test_youtube_readonly.py' -v
+      - name: Install optional MCP v2 SDK and validate server can register offline
+        shell: bash
+        env:
+          YOUTUBE_READONLY_ACCESS_TOKEN: ""
+        run: |
+          set -euo pipefail
+          python -m pip install '.[youtube-mcp]'
+          python - <<'PY'
+          from mcp.server.mcpserver import MCPServer
+          from meta_facebook_mcp_publisher.youtube_readonly_mcp import mcp
+          assert isinstance(mcp, MCPServer)
+          print("MCP_V2_IMPORT=PASS")
+          print("MCP_LOCAL_STDIO_READY=PASS")
+          PY
       - name: Reject publishing permissions and uploads in read-only surface
         shell: bash
         run: |
