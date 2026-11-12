@@ -8,6 +8,8 @@ on:
       - "src/meta_facebook_mcp_publisher/youtube_readonly_mcp.py"
       - "tests/test_youtube_readonly.py"
       - "tests/test_youtube_mcp_contract.py"
+      - "tests/test_youtube_oauth_contract.py"
+      - "src/meta_facebook_mcp_publisher/youtube_oauth_contract.py"
       - ".github/workflows/youtube-readonly-mcp-ci.yml"
   push:
     branches: [main]
@@ -17,6 +19,8 @@ on:
       - "src/meta_facebook_mcp_publisher/youtube_readonly_mcp.py"
       - "tests/test_youtube_readonly.py"
       - "tests/test_youtube_mcp_contract.py"
+      - "tests/test_youtube_oauth_contract.py"
+      - "src/meta_facebook_mcp_publisher/youtube_oauth_contract.py"
       - ".github/workflows/youtube-readonly-mcp-ci.yml"
 
 permissions:
@@ -56,6 +60,8 @@ jobs:
           print("MCP_V2_IMPORT=PASS")
           print("MCP_LOCAL_STDIO_READY=PASS")
           PY
+      - name: Test Google OAuth PKCE and read-only scope policy offline
+        run: python -m unittest discover -s tests -p 'test_youtube_oauth_contract.py' -v
       - name: Test MCP v2 protocol and fail-closed authorization
         env:
           YOUTUBE_READONLY_ACCESS_TOKEN: ""
