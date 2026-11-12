@@ -6,7 +6,9 @@ this module is for the CineForge/VPS runtime after separate OAuth provisioning.
 """
 from __future__ import annotations
 
-from .youtube_readonly import YouTubeReadOnlyClient
+import os
+
+from .youtube_readonly import YouTubeReadOnlyClient, YouTubeReadOnlyError
 
 try:
     from mcp.server.mcpserver import MCPServer
@@ -19,6 +21,26 @@ mcp = MCPServer(
     "CineForge YouTube ReadOnly",
     instructions="Only GET-only channel metadata and historical analytics; no uploads, edits, deletes or publication.",
 )
+
+
+@mcp.tool()
+def youtube_connection_status() -> dict:
+    """Diagnose connection without returning tokens, secrets or account email."""
+    if not os.environ.get("YOUTUBE_READONLY_ACCESS_TOKEN", "").strip():
+        return {"status": "BLOCKED_NO_OAUTH", "channel_verified": False}
+    expected = os.environ.get("YOUTUBE_EXPECTED_CHANNEL_ID", "").strip()
+    if not expected:
+        return {"status": "BLOCKED_CHANNEL_NOT_PINNED", "channel_verified": False}
+    try:
+        profile = YouTubeReadOnlyClient().channel_profile()
+    except YouTubeReadOnlyError:
+        return {"status": "BLOCKED_AUTH_OR_API", "channel_verified": False}
+    if profile.get("channel_id") != expected:
+        return {"status": "BLOCKED_CHANNEL_MISMATCH", "channel_verified": False}
+    return {
+        "status": "CONNECTED_READONLY", "channel_verified": True,
+        "channel_id": expected, "channel_title": profile.get("title"),
+    }
 
 
 @mcp.tool()
