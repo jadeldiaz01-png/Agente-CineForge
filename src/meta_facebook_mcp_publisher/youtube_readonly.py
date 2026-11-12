@@ -89,6 +89,14 @@ class YouTubeReadOnlyClient:
             raise YouTubeReadOnlyError("YOUTUBE_CHANNEL_NOT_FOUND")
         return items[0]
 
+    def _require_pinned_channel(self, channel: dict[str, Any]) -> None:
+        """Require owner-confirmed channel identity for analytics and video lists."""
+        expected = os.environ.get("YOUTUBE_EXPECTED_CHANNEL_ID", "").strip()
+        if not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", expected):
+            raise YouTubeReadOnlyError("YOUTUBE_EXPECTED_CHANNEL_NOT_CONFIGURED")
+        if channel.get("id") != expected:
+            raise YouTubeReadOnlyError("YOUTUBE_CHANNEL_ID_MISMATCH")
+
     def channel_profile(self) -> dict[str, Any]:
         """Read metadata for the account/channel chosen during OAuth."""
         data = self._mine("snippet,statistics")
@@ -108,6 +116,7 @@ class YouTubeReadOnlyClient:
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
             raise ValueError("LIMIT_MUST_BE_1_TO_20")
         channel = self._mine("contentDetails")
+        self._require_pinned_channel(channel)
         uploads = (channel.get("contentDetails") or {}).get("relatedPlaylists") or {}
         playlist_id = uploads.get("uploads")
         if not isinstance(playlist_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{2,100}", playlist_id):
@@ -135,6 +144,9 @@ class YouTubeReadOnlyClient:
             raise ValueError("DATE_WINDOW_MUST_BE_0_TO_90_DAYS")
         if end > date.today():
             raise ValueError("END_DATE_MUST_NOT_BE_IN_FUTURE")
+        # Never query analytics for an unpinned or mismatching OAuth identity.
+        channel = self._mine("id")
+        self._require_pinned_channel(channel)
         metrics = "views,estimatedMinutesWatched,subscribersGained"
         response = self._get(ANALYTICS_API, {
             "ids": "channel==MINE", "startDate": start_date,
