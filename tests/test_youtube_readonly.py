@@ -19,11 +19,11 @@ class FakeTransport:
         endpoint = urlsplit(url)
         q = parse_qs(endpoint.query)
         if endpoint.path.endswith("/channels") and q.get("part") == ["snippet,statistics"]:
-            return {"items": [{"id": "UCtest", "snippet": {
+            return {"items": [{"id": "UC1234567890123456789012", "snippet": {
                 "title": "Demo", "publishedAt": "2025-02-01T00:00:00Z"
             }, "statistics": {"viewCount": "100", "videoCount": "2"}}]}
         if endpoint.path.endswith("/channels"):
-            return {"items": [{"id": "UCtest", "contentDetails": {
+            return {"items": [{"id": "UC1234567890123456789012", "contentDetails": {
                 "relatedPlaylists": {"uploads": "UUtest"}
             }}]}
         if endpoint.path.endswith("/playlistItems"):
@@ -38,6 +38,11 @@ class FakeTransport:
 
 
 class YouTubeReadOnlyTests(unittest.TestCase):
+    def setUp(self):
+        self.pin = patch.dict(os.environ, {"YOUTUBE_EXPECTED_CHANNEL_ID": "UC1234567890123456789012"})
+        self.pin.start()
+        self.addCleanup(self.pin.stop)
+
     def test_no_oauth_token_fails_closed(self):
         with patch.dict(os.environ, {"YOUTUBE_READONLY_ACCESS_TOKEN": ""}):
             with self.assertRaisesRegex(YouTubeReadOnlyError, "NOT_CONNECTED"):
@@ -71,7 +76,22 @@ class YouTubeReadOnlyTests(unittest.TestCase):
         query = parse_qs(urlsplit(tx.calls[-1][0]).query)
         self.assertEqual(query["ids"], ["channel==MINE"])
         self.assertNotIn("estimatedRevenue", query["metrics"][0])
+        self.assertEqual(len(tx.calls), 2)
+        self.assertEqual(parse_qs(urlsplit(tx.calls[0][0]).query)["part"], ["id"])
+
+    def test_channel_identity_gate_blocks_private_data(self):
+        tx = FakeTransport()
+        client = YouTubeReadOnlyClient(token="dummy", transport=tx)
+        with patch.dict(os.environ, {"YOUTUBE_EXPECTED_CHANNEL_ID": ""}):
+            with self.assertRaisesRegex(YouTubeReadOnlyError, "NOT_CONFIGURED"):
+                client.recent_videos()
         self.assertEqual(len(tx.calls), 1)
+        with patch.dict(os.environ, {"YOUTUBE_EXPECTED_CHANNEL_ID": "UCAAAAAAAAAAAAAAAAAAAAAA"}):
+            with self.assertRaisesRegex(YouTubeReadOnlyError, "MISMATCH"):
+                client.channel_analytics("2026-01-01", "2026-01-30")
+        # Only the identity check is made; no private playlist or analytics query.
+        self.assertEqual(len(tx.calls), 2)
+        self.assertTrue(all(urlsplit(url).path.endswith("/channels") for url, _ in tx.calls))
 
     def test_date_validation_and_no_calls(self):
         tx = FakeTransport()
