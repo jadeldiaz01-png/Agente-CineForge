@@ -22,7 +22,7 @@ READ_ONLY_SCOPES = (
 
 @dataclass(frozen=True)
 class AuthorizationAttempt:
-    authorization_url: str
+    authorization_url: str = field(repr=False)
     state: str = field(repr=False)
     code_verifier: str = field(repr=False)
 
