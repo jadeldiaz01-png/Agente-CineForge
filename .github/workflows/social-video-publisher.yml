@@ -14,6 +14,26 @@ on:
       caption:
         description: "Approved caption/description"
         required: true
+      youtube_title:
+        description: "YouTube title (optional; defaults to the video filename)"
+        required: false
+        default: ""
+      youtube_tags:
+        description: "Comma-separated YouTube tags"
+        required: false
+        default: ""
+      youtube_privacy_status:
+        description: "YouTube visibility"
+        required: true
+        type: choice
+        options: ["private", "unlisted", "public"]
+        default: "private"
+      youtube_made_for_kids:
+        description: "Is this video made for kids?"
+        required: true
+        type: choice
+        options: ["true", "false"]
+        default: "false"
       dry_run:
         description: "Validate execution without calling external APIs"
         required: true
@@ -64,6 +84,15 @@ jobs:
           YOUTUBE_PUBLISHING_ENABLED: ${{ vars.YOUTUBE_PUBLISHING_ENABLED || 'false' }}
           YOUTUBE_PUBLIC_POSTING_AUDITED: ${{ vars.YOUTUBE_PUBLIC_POSTING_AUDITED || 'false' }}
           YOUTUBE_DAILY_UPLOAD_LIMIT: ${{ vars.YOUTUBE_DAILY_UPLOAD_LIMIT || '6' }}
+          INPUT_VIDEO_PATH: ${{ inputs.video_path }}
+          INPUT_CAPTION: ${{ inputs.caption }}
+          INPUT_PLATFORMS: ${{ inputs.platforms }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_HUMAN_APPROVED: ${{ inputs.human_approved }}
+          YOUTUBE_TITLE: ${{ inputs.youtube_title }}
+          YOUTUBE_TAGS: ${{ inputs.youtube_tags }}
+          YOUTUBE_PRIVACY_STATUS: ${{ inputs.youtube_privacy_status }}
+          YOUTUBE_MADE_FOR_KIDS: ${{ inputs.youtube_made_for_kids }}
           TIKTOK_ACCOUNT_ID: ${{ secrets.TIKTOK_ACCOUNT_ID }}
           TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
           TIKTOK_PUBLISHING_ENABLED: ${{ vars.TIKTOK_PUBLISHING_ENABLED || 'false' }}
@@ -75,16 +104,23 @@ jobs:
           X_DAILY_POST_LIMIT: ${{ vars.X_DAILY_POST_LIMIT || '17' }}
         run: |
           set -euo pipefail
-          FLAGS=""
-          if [ "${{ inputs.human_approved }}" = "true" ]; then
-            FLAGS="$FLAGS --human-approved --video-qc-passed --originality-reviewed"
+          FLAGS=()
+          if [ "$INPUT_HUMAN_APPROVED" = "true" ]; then
+            FLAGS+=(--human-approved --video-qc-passed --originality-reviewed)
           fi
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            FLAGS="$FLAGS --dry-run"
+          if [ "$INPUT_DRY_RUN" = "true" ]; then
+            FLAGS+=(--dry-run)
+          fi
+          YOUTUBE_ARGS=(--privacy-status "$YOUTUBE_PRIVACY_STATUS" --made-for-kids "$YOUTUBE_MADE_FOR_KIDS")
+          if [ -n "$YOUTUBE_TITLE" ]; then
+            YOUTUBE_ARGS+=(--title "$YOUTUBE_TITLE")
+          fi
+          if [ -n "$YOUTUBE_TAGS" ]; then
+            YOUTUBE_ARGS+=(--tags "$YOUTUBE_TAGS")
           fi
           python -m meta_facebook_mcp_publisher.cli \
-            --video "${{ inputs.video_path }}" \
-            --caption "${{ inputs.caption }}" \
-            --platforms "${{ inputs.platforms }}" \
+            --video "$INPUT_VIDEO_PATH" \
+            --caption "$INPUT_CAPTION" \
+            --platforms "$INPUT_PLATFORMS" \
             --idempotency-key "${{ github.run_id }}-${{ github.run_attempt }}" \
-            $FLAGS
+            "${FLAGS[@]}" "${YOUTUBE_ARGS[@]}"
