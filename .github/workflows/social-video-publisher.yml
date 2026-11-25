@@ -44,6 +44,16 @@ on:
         required: true
         type: boolean
         default: false
+      video_qc_passed:
+        description: "Confirm independent video QC passed"
+        required: true
+        type: boolean
+        default: false
+      originality_reviewed:
+        description: "Confirm originality and rights review passed"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -89,6 +99,8 @@ jobs:
           INPUT_PLATFORMS: ${{ inputs.platforms }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
           INPUT_HUMAN_APPROVED: ${{ inputs.human_approved }}
+          INPUT_VIDEO_QC_PASSED: ${{ inputs.video_qc_passed }}
+          INPUT_ORIGINALITY_REVIEWED: ${{ inputs.originality_reviewed }}
           YOUTUBE_TITLE: ${{ inputs.youtube_title }}
           YOUTUBE_TAGS: ${{ inputs.youtube_tags }}
           YOUTUBE_PRIVACY_STATUS: ${{ inputs.youtube_privacy_status }}
@@ -106,7 +118,13 @@ jobs:
           set -euo pipefail
           FLAGS=()
           if [ "$INPUT_HUMAN_APPROVED" = "true" ]; then
-            FLAGS+=(--human-approved --video-qc-passed --originality-reviewed)
+            FLAGS+=(--human-approved)
+          fi
+          if [ "$INPUT_VIDEO_QC_PASSED" = "true" ]; then
+            FLAGS+=(--video-qc-passed)
+          fi
+          if [ "$INPUT_ORIGINALITY_REVIEWED" = "true" ]; then
+            FLAGS+=(--originality-reviewed)
           fi
           if [ "$INPUT_DRY_RUN" = "true" ]; then
             FLAGS+=(--dry-run)
