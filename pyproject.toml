@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 cineforge-youtube-mcp = "meta_facebook_mcp_publisher.youtube_mcp_server:main"
+cineforge-youtube-mcp-http = "meta_facebook_mcp_publisher.youtube_mcp_http_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
