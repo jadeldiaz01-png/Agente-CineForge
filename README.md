@@ -110,6 +110,15 @@ python -m pip install .
 python -m meta_facebook_mcp_publisher.youtube_mcp_server
 ```
 
+The server can load the OAuth variables from a local file outside the
+repository. Set `YOUTUBE_ENV_FILE` in the MCP host configuration to that file's
+absolute path, for example
+`C:\\Users\\<your-user>\\.jadeltechrd\\secrets\\youtube.env`. The file must
+define `YOUTUBE_CHANNEL_ID`, `YOUTUBE_OAUTH_CLIENT_ID`,
+`YOUTUBE_OAUTH_CLIENT_SECRET`, and `YOUTUBE_OAUTH_REFRESH_TOKEN`. Existing
+process environment variables take precedence. Keep the file outside Git and
+restrict access to your Windows user account.
+
 It exposes `youtube_channel_info` and `upload_youtube_video`. The upload tool
 only accepts MP4 files under `YOUTUBE_ALLOWED_VIDEO_DIR` (default
 `artifacts/`), uses resumable uploads, checks that OAuth identifies the
