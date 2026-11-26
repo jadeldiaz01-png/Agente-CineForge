@@ -119,7 +119,7 @@ disabled during verification:
   "command": "python",
   "args": ["-m", "meta_facebook_mcp_publisher.youtube_mcp_server"],
   "env": {
-    "YOUTUBE_ENV_FILE": "C:\\\\Users\\\\<your-user>\\\\.jadeltechrd\\\\secrets\\\\youtube.env",
+    "YOUTUBE_ENV_FILE": "C:/Users/<your-user>/.jadeltechrd/secrets/youtube.env",
     "YOUTUBE_PUBLISHING_ENABLED": "false"
   }
 }
