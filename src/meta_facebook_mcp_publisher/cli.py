@@ -33,6 +33,10 @@ def run() -> int:
     parser.add_argument("--human-approved", action="store_true")
     parser.add_argument("--video-qc-passed", action="store_true")
     parser.add_argument("--originality-reviewed", action="store_true")
+    parser.add_argument("--title", help="YouTube title; defaults to the video filename.")
+    parser.add_argument("--tags", default="", help="Comma-separated YouTube tags.")
+    parser.add_argument("--privacy-status", choices=("private", "unlisted", "public"), default="private")
+    parser.add_argument("--made-for-kids", choices=("true", "false"), default="false")
     args = parser.parse_args()
 
     video_path = Path(args.video)
@@ -52,7 +56,7 @@ def run() -> int:
         ),
         Platform.YOUTUBE: PlatformCapability(
             Platform.YOUTUBE,
-            connected=bool(os.getenv("YOUTUBE_OAUTH_ACCESS_TOKEN") and os.getenv("YOUTUBE_CHANNEL_ID")),
+            connected=bool((os.getenv("YOUTUBE_OAUTH_ACCESS_TOKEN") or os.getenv("YOUTUBE_OAUTH_REFRESH_TOKEN")) and os.getenv("YOUTUBE_CHANNEL_ID")),
             production_ready=_env_bool("YOUTUBE_PUBLISHING_ENABLED"),
             reason="YouTube OAuth credentials or production flag missing",
         ),
@@ -115,9 +119,21 @@ def run() -> int:
                 access_token=os.getenv(account_env[1], ""),
                 account_id=os.getenv(account_env[0], ""),
                 daily_limit=int(os.getenv(account_env[2], "30")),
-                public_posting_audited=_env_bool("TIKTOK_PUBLIC_POSTING_AUDITED", True)
-                if platform == Platform.TIKTOK
-                else True,
+                public_posting_audited=(
+                    _env_bool("TIKTOK_PUBLIC_POSTING_AUDITED", True)
+                    if platform == Platform.TIKTOK
+                    else (_env_bool("YOUTUBE_PUBLIC_POSTING_AUDITED") if platform == Platform.YOUTUBE and args.privacy_status == "public" else True)
+                ),
+                metadata=(
+                    {
+                        "title": args.title or video_path.stem,
+                        "tags": args.tags,
+                        "privacy_status": args.privacy_status,
+                        "made_for_kids": args.made_for_kids,
+                    }
+                    if platform == Platform.YOUTUBE
+                    else {}
+                ),
             )
         ]
         results.extend(publisher.publish_many(requests))

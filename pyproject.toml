@@ -7,7 +7,15 @@ name = "meta-facebook-mcp-publisher"
 version = "0.1.1"
 description = "Fail-closed Meta/Facebook Page video publisher scaffold for agentic video systems."
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "google-api-python-client>=2.150,<3",
+  "google-auth>=2.35,<3",
+  "mcp>=1.20,<2",
+  "python-dotenv>=1.0,<2",
+]
+
+[project.scripts]
+cineforge-youtube-mcp = "meta_facebook_mcp_publisher.youtube_mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

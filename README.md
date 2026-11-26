@@ -101,6 +101,51 @@ Run it manually from GitHub Actions with `dry_run=true` first. GitHub Actions
 `workflow_dispatch` only appears when the workflow file is on the default
 branch.
 
+## YouTube MCP server
+
+Install the project and run the local stdio MCP server:
+
+```bash
+python -m pip install .
+python -m meta_facebook_mcp_publisher.youtube_mcp_server
+```
+
+The server can load the OAuth variables from a local file outside the
+repository. Configure the MCP host to pass the file path and keep publishing
+disabled during verification:
+
+```json
+{
+  "command": "python",
+  "args": ["-m", "meta_facebook_mcp_publisher.youtube_mcp_server"],
+  "env": {
+    "YOUTUBE_ENV_FILE": "C:/Users/<your-user>/.jadeltechrd/secrets/youtube.env",
+    "YOUTUBE_PUBLISHING_ENABLED": "false"
+  }
+}
+```
+
+The file must define `YOUTUBE_CHANNEL_ID`, `YOUTUBE_OAUTH_CLIENT_ID`,
+`YOUTUBE_OAUTH_CLIENT_SECRET`, and `YOUTUBE_OAUTH_REFRESH_TOKEN`. Existing
+process environment variables take precedence. Keep the file outside Git and
+restrict access to your Windows user account.
+
+It exposes `youtube_channel_info` and `upload_youtube_video`. The upload tool
+only accepts MP4 files under `YOUTUBE_ALLOWED_VIDEO_DIR` (default
+`artifacts/`), uses resumable uploads, checks that OAuth identifies the
+configured channel, and records attempts in a local SQLite ledger to reject
+duplicate idempotency keys and enforce the local 24-hour limit. Unknown upload
+outcomes stay reserved; reconcile them before attempting another upload.
+
+Configure the YouTube OAuth refresh token, OAuth client ID and client secret
+outside the repository. The consent must include the YouTube upload and
+read-only channel scopes. Keep `YOUTUBE_PUBLISHING_ENABLED=false` until the
+credentials and account are verified. The upload tool also requires explicit
+approval, successful QC and originality review. Public uploads additionally
+require `YOUTUBE_PUBLIC_POSTING_AUDITED=true`; visibility defaults to private.
+This is a local stdio server. It does not connect itself to ChatGPT or deploy
+a remote MCP endpoint.
+
 ## Credentials
 
 Do not commit real credentials. Add them through GitHub Actions Secrets or
@@ -113,6 +158,9 @@ META_PAGE_ID
 META_PAGE_ACCESS_TOKEN
 YOUTUBE_CHANNEL_ID
 YOUTUBE_OAUTH_ACCESS_TOKEN
+YOUTUBE_OAUTH_REFRESH_TOKEN
+YOUTUBE_OAUTH_CLIENT_ID
+YOUTUBE_OAUTH_CLIENT_SECRET
 TIKTOK_ACCOUNT_ID
 TIKTOK_ACCESS_TOKEN
 X_ACCOUNT_ID
@@ -124,6 +172,7 @@ Required production variables start as `false`:
 ```text
 META_PUBLISHING_ENABLED
 YOUTUBE_PUBLISHING_ENABLED
+YOUTUBE_PUBLIC_POSTING_AUDITED
 TIKTOK_PUBLISHING_ENABLED
 TIKTOK_PUBLIC_POSTING_AUDITED
 X_PUBLISHING_ENABLED
