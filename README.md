@@ -143,8 +143,37 @@ read-only channel scopes. Keep `YOUTUBE_PUBLISHING_ENABLED=false` until the
 credentials and account are verified. The upload tool also requires explicit
 approval, successful QC and originality review. Public uploads additionally
 require `YOUTUBE_PUBLIC_POSTING_AUDITED=true`; visibility defaults to private.
-This is a local stdio server. It does not connect itself to ChatGPT or deploy
-a remote MCP endpoint.
+This stdio server is for local MCP hosts. It does not expose a remote endpoint.
+
+## Remote read-only YouTube MCP endpoint
+
+A separate Streamable HTTP entry point is available for a private, read-only
+channel check. It registers only `youtube_channel_info`; it never exposes
+`upload_youtube_video`. It binds to `127.0.0.1` and defaults to port `8766`.
+
+Enable it explicitly in the service environment:
+
+```text
+YOUTUBE_MCP_HTTP_ENABLED=true
+YOUTUBE_MCP_HTTP_PORT=8766
+YOUTUBE_MCP_HTTP_ALLOWED_HOSTS=127.0.0.1:8766,localhost:8766,[::1]:8766
+YOUTUBE_MCP_HTTP_ALLOWED_ORIGINS=http://127.0.0.1:8766,http://localhost:8766,http://[::1]:8766
+```
+
+Run `cineforge-youtube-mcp-http` (or
+`python -m meta_facebook_mcp_publisher.youtube_mcp_http_server`). The MCP
+endpoint is `http://127.0.0.1:8766/mcp`. Keep the process bound to loopback;
+a Cloudflare Tunnel route on the same host should target
+`http://127.0.0.1:8766`.
+
+Before using a public hostname, add that exact hostname to
+`YOUTUBE_MCP_HTTP_ALLOWED_HOSTS` (including the port form if the proxy sends
+one) and its HTTPS origin to `YOUTUBE_MCP_HTTP_ALLOWED_ORIGINS`. The SDK
+continues to validate Host and Origin headers. These allowlists are not
+authentication: put Cloudflare Access in front of any public route and verify
+that the intended MCP client can complete its authentication flow. Do not
+disable Access or publish the route while that check is pending. This HTTP
+entry point remains read-only even if YouTube upload flags are enabled.
 
 ## Credentials
 
