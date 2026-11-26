@@ -111,10 +111,21 @@ python -m meta_facebook_mcp_publisher.youtube_mcp_server
 ```
 
 The server can load the OAuth variables from a local file outside the
-repository. Set `YOUTUBE_ENV_FILE` in the MCP host configuration to that file's
-absolute path, for example
-`C:\\Users\\<your-user>\\.jadeltechrd\\secrets\\youtube.env`. The file must
-define `YOUTUBE_CHANNEL_ID`, `YOUTUBE_OAUTH_CLIENT_ID`,
+repository. Configure the MCP host to pass the file path and keep publishing
+disabled during verification:
+
+```json
+{
+  "command": "python",
+  "args": ["-m", "meta_facebook_mcp_publisher.youtube_mcp_server"],
+  "env": {
+    "YOUTUBE_ENV_FILE": "C:\\\\Users\\\\<your-user>\\\\.jadeltechrd\\\\secrets\\\\youtube.env",
+    "YOUTUBE_PUBLISHING_ENABLED": "false"
+  }
+}
+```
+
+The file must define `YOUTUBE_CHANNEL_ID`, `YOUTUBE_OAUTH_CLIENT_ID`,
 `YOUTUBE_OAUTH_CLIENT_SECRET`, and `YOUTUBE_OAUTH_REFRESH_TOKEN`. Existing
 process environment variables take precedence. Keep the file outside Git and
 restrict access to your Windows user account.
