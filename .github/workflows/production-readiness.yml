@@ -57,21 +57,107 @@ jobs:
           print('IMMUTABLE_ACTIONS=PASS')
           PY
 
-      - name: Generate minimal SPDX SBOM
+      - name: Generate runtime dependency SPDX SBOM
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set -euo pipefail
           python - <<'PY'
-          import importlib.metadata as md, json, pathlib, uuid
-          packages=[]
-          for name in ('meta-facebook-mcp-publisher','pytest'):
-              try:
-                  dist=md.distribution(name)
-              except md.PackageNotFoundError:
+          from datetime import datetime, timezone
+          import hashlib
+          import importlib.metadata as md
+          import json
+          import os
+          import pathlib
+          import re
+          import uuid
+          from packaging.requirements import Requirement
+          from packaging.utils import canonicalize_name
+
+          root_name = canonicalize_name("meta-facebook-mcp-publisher")
+          queue = [root_name]
+          distributions = {}
+          dependencies = {}
+
+          while queue:
+              name = canonicalize_name(queue.pop(0))
+              if name in distributions:
                   continue
-              packages.append({'SPDXID':f'SPDXRef-Package-{name}','name':name,'versionInfo':dist.version,'downloadLocation':'NOASSERTION','filesAnalyzed':False})
-          doc={'spdxVersion':'SPDX-2.3','dataLicense':'CC0-1.0','SPDXID':'SPDXRef-DOCUMENT','name':'cineforge-ci-sbom','documentNamespace':f'https://jadeltechrd.com/spdx/{uuid.uuid4()}','creationInfo':{'creators':['Tool: jadel-cineforge-readiness'],'created':'2026-08-31T00:00:00Z'},'packages':packages}
-          pathlib.Path('artifacts').mkdir(exist_ok=True)
-          pathlib.Path('artifacts/sbom.spdx.json').write_text(json.dumps(doc,indent=2,sort_keys=True),encoding='utf-8')
+              dist = md.distribution(name)
+              distributions[name] = dist
+              direct = set()
+              for raw_requirement in dist.requires or []:
+                  requirement = Requirement(raw_requirement)
+                  if requirement.marker and not requirement.marker.evaluate():
+                      continue
+                  dependency = canonicalize_name(requirement.name)
+                  direct.add(dependency)
+                  queue.append(dependency)
+              dependencies[name] = sorted(direct)
+
+          package_ids = {}
+          packages = []
+          for name in sorted(distributions):
+              dist = distributions[name]
+              version = dist.version
+              package_id = "SPDXRef-Package-" + hashlib.sha256(
+                  f"{name}@{version}".encode("utf-8")
+              ).hexdigest()[:20]
+              package_ids[name] = package_id
+              packages.append({
+                  "SPDXID": package_id,
+                  "name": name,
+                  "versionInfo": version,
+                  "downloadLocation": "NOASSERTION",
+                  "filesAnalyzed": False,
+                  "licenseConcluded": "NOASSERTION",
+                  "licenseDeclared": "NOASSERTION",
+                  "copyrightText": "NOASSERTION",
+                  "externalRefs": [{
+                      "referenceCategory": "PACKAGE-MANAGER",
+                      "referenceType": "purl",
+                      "referenceLocator": f"pkg:pypi/{name}@{version}",
+                  }],
+              })
+
+          relationships = [{
+              "spdxElementId": "SPDXRef-DOCUMENT",
+              "relationshipType": "DESCRIBES",
+              "relatedSpdxElement": package_ids[root_name],
+          }]
+          for source in sorted(dependencies):
+              for target in dependencies[source]:
+                  if target in package_ids:
+                      relationships.append({
+                          "spdxElementId": package_ids[source],
+                          "relationshipType": "DEPENDS_ON",
+                          "relatedSpdxElement": package_ids[target],
+                      })
+
+          run_id = os.environ["GITHUB_RUN_ID"]
+          attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+          repository = os.environ["GITHUB_REPOSITORY"]
+          namespace_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{repository}/{run_id}/{attempt}")
+          doc = {
+              "spdxVersion": "SPDX-2.3",
+              "dataLicense": "CC0-1.0",
+              "SPDXID": "SPDXRef-DOCUMENT",
+              "name": "cineforge-runtime-dependency-sbom",
+              "documentNamespace": f"https://jadeltechrd.com/spdx/cineforge/{namespace_id}",
+              "creationInfo": {
+                  "creators": ["Tool: cineforge-production-readiness"],
+                  "created": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              },
+              "packages": packages,
+              "relationships": relationships,
+          }
+          output = pathlib.Path("artifacts/sbom.spdx.json")
+          output.parent.mkdir(exist_ok=True)
+          output.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(f"SBOM_RUNTIME_PACKAGES={len(packages)}")
+          print(f"SBOM_CREATED={doc['creationInfo']['created']}")
           PY
 
       - name: Upload readiness evidence
