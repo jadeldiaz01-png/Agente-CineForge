@@ -119,3 +119,42 @@ def test_gate_denies(headers, status):
 def test_unknown_route_and_method():
     assert request([HOST, ASSERTION], path="/admin") == (404, False)
     assert request([HOST, ASSERTION], method="PUT") == (405, False)
+
+
+def test_real_mcp_asgi_read_only(monkeypatch):
+    from starlette.testclient import TestClient
+    from meta_facebook_mcp_publisher import youtube_mcp_server
+    from meta_facebook_mcp_publisher.youtube_remote_access import build_app
+
+    def youtube_channel_info() -> dict:
+        return {"channel_id": "fixture-channel", "title": "Fixture"}
+
+    monkeypatch.setattr(youtube_mcp_server, "youtube_channel_info", youtube_channel_info)
+    monkeypatch.setattr(AccessVerifier, "__call__", lambda self, token: token == "verified-test-token")
+    monkeypatch.setenv("CF_ACCESS_TEAM_DOMAIN", ISSUER)
+    monkeypatch.setenv("CF_ACCESS_AUD", AUD)
+    monkeypatch.setenv("CF_ACCESS_OWNER_EMAIL", EMAIL)
+    headers = {"Accept": "application/json, text/event-stream",
+               "Cf-Access-Jwt-Assertion": "verified-test-token",
+               "MCP-Protocol-Version": "2025-03-26"}
+
+    def message(method, params=None):
+        return {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
+
+    with TestClient(build_app(), base_url="https://" + PUBLIC_HOST) as client:
+        init = message("initialize", {"protocolVersion": "2025-03-26",
+                       "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}})
+        assert client.post("/mcp", json=init, headers={"Accept": headers["Accept"]}).status_code == 401
+        response = client.post("/mcp", json=init, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["result"]["serverInfo"]["name"] == "cineforge-youtube-remote"
+        response = client.post("/mcp", json=message("tools/list"), headers=headers)
+        assert response.status_code == 200
+        assert [t["name"] for t in response.json()["result"]["tools"]] == ["youtube_channel_info"]
+        response = client.post("/mcp", json=message("tools/call", {"name": "youtube_channel_info", "arguments": {}}), headers=headers)
+        assert response.status_code == 200
+        assert not response.json()["result"].get("isError", False)
+        assert "fixture-channel" in str(response.json()["result"])
+        response = client.post("/mcp", json=message("tools/call", {"name": "upload_youtube_video", "arguments": {}}), headers=headers)
+        assert response.status_code == 200
+        assert response.json().get("error") or response.json()["result"].get("isError")
