@@ -12,9 +12,30 @@ from .models import Platform, PlatformPublishRequest
 from .platform_clients import YouTubeClient
 
 server = FastMCP("cineforge-youtube")
+_env_file_loaded = False
+
+
+def _load_secret_file() -> None:
+    """Load a user-supplied local env file; process env values take precedence."""
+    global _env_file_loaded
+    if _env_file_loaded:
+        return
+    env_file = os.getenv("YOUTUBE_ENV_FILE", "").strip()
+    if env_file:
+        path = Path(env_file).expanduser()
+        if not path.is_file():
+            raise FileNotFoundError("YOUTUBE_ENV_FILE does not point to a readable file.")
+        try:
+            from dotenv import load_dotenv
+        except ImportError as exc:
+            raise RuntimeError("Install the project with python-dotenv to load YOUTUBE_ENV_FILE.") from exc
+        if not load_dotenv(dotenv_path=path, override=False):
+            raise RuntimeError("The configured YOUTUBE_ENV_FILE could not be loaded.")
+    _env_file_loaded = True
 
 
 def _configured_client() -> tuple[YouTubeClient, str, str]:
+    _load_secret_file()
     channel_id = os.getenv("YOUTUBE_CHANNEL_ID", "").strip()
     access_token = os.getenv("YOUTUBE_OAUTH_ACCESS_TOKEN", "").strip()
     refresh_token = os.getenv("YOUTUBE_OAUTH_REFRESH_TOKEN", "").strip()
