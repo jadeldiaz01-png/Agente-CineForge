@@ -1,6 +1,6 @@
-# Remote read-only CineForge MCP — gated rollout
+# Remote CineForge YouTube MCP — gated upload rollout
 
-Status: PREPARED, NOT CERTIFIED. This does not authorize YouTube uploads.
+Status: upload tool can be exposed, but publishing remains disabled by default. This runbook does not authorize a particular video upload.
 Existing local service on 127.0.0.1:8766 must remain unchanged. The existing
 tunnel route is intended to reach 127.0.0.1:8765; do not point it at 8766.
 
@@ -20,9 +20,13 @@ tunnel route is intended to reach 127.0.0.1:8765; do not point it at 8766.
 - Obtain the team domain and this app's AUD from Cloudflare Access, not
   from a token provided by a caller. Origin accepts Cloudflare signed
   Cf-Access-Jwt-Assertion, not the opaque client access token.
-- Existing YouTube env file remains outside Git; only read-only tool
-  registered. Prefer a separately scoped read-only Google refresh token
-  for least privilege when feasible; existing token may also allow upload.
+- Existing YouTube env file remains outside Git. The remote server exposes
+  `youtube_channel_info` and the gated `upload_youtube_video` tool.
+- The upload tool accepts a path to an MP4 already present on the VPS inside
+  `YOUTUBE_ALLOWED_VIDEO_DIR`; it does not transfer a ChatGPT attachment.
+- Keep `YOUTUBE_PUBLISHING_ENABLED=false` and
+  `YOUTUBE_PUBLIC_POSTING_AUDITED=false` until an approved asset, metadata,
+  privacy level, and private-upload reconciliation procedure are in place.
 
 ## Prepare independent runtime
 
@@ -63,7 +67,7 @@ CF_ACCESS_OWNER_EMAIL=YOUR-OWNER-EMAIL
 Use a dedicated systemd unit only after configuring the Access edge policy:
 ```ini
 [Unit]
-Description=CineForge protected remote read-only MCP
+Description=CineForge protected remote YouTube MCP
 After=network-online.target
 Wants=network-online.target
 
@@ -109,7 +113,8 @@ Try the upload tool, assert unavailable without any external upload attempt.
 Confirm denied account and revoked/expired token behavior. Check restart
 and repeat authenticated calls. Record sanitized evidence, commit SHA, dependency
 versions, app policy/AUD (no tokens), timestamps, and client identity.
-Enable autostart only after the agreed gates pass.
+Enable autostart only after the agreed gates pass. The service may be enabled
+for boot while publishing remains disabled.
 
 ## Rollback
 
