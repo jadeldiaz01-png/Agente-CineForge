@@ -158,6 +158,9 @@ def test_real_mcp_asgi_read_and_gated_upload(monkeypatch):
         upload_tool = next(tool for tool in tools if tool["name"] == "upload_youtube_video")
         assert upload_tool["annotations"]["readOnlyHint"] is False
         assert upload_tool["annotations"]["destructiveHint"] is True
+        upload_input = upload_tool["inputSchema"]
+        assert "approval_token" in upload_input.get("required", [])
+        assert not {"human_approved", "video_qc_passed", "originality_reviewed"} & set(upload_input["properties"])
         response = client.post("/mcp", json=message("tools/call", {"name": "youtube_channel_info", "arguments": {}}), headers=headers)
         assert response.status_code == 200
         assert not response.json()["result"].get("isError", False)
@@ -169,9 +172,7 @@ def test_real_mcp_asgi_read_and_gated_upload(monkeypatch):
                 "title": "Test upload",
                 "description": "Must stay blocked",
                 "made_for_kids": False,
-                "human_approved": True,
-                "video_qc_passed": True,
-                "originality_reviewed": True,
+                "approval_token": "",
                 "idempotency_key": "remote-test-key",
             },
         }), headers=headers)

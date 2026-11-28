@@ -10,6 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from .gates import evaluate_platform_publish_gates
 from .models import Platform, PlatformPublishRequest
 from .platform_clients import YouTubeClient
+from .youtube_approval import upload_approval_digest, reserve_approved_attempt
 
 server = FastMCP("cineforge-youtube")
 _env_file_loaded = False
@@ -70,38 +71,6 @@ def _ledger_path() -> Path:
     return path
 
 
-def _reserve_attempt(key: str, channel_id: str, limit: int) -> None:
-    if not key.strip():
-        raise ValueError("An idempotency_key is required.")
-    db = sqlite3.connect(_ledger_path(), timeout=10, isolation_level=None)
-    try:
-        db.execute("PRAGMA busy_timeout=10000")
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS youtube_uploads ("
-            "idempotency_key TEXT PRIMARY KEY, channel_id TEXT NOT NULL, "
-            "created_at TEXT NOT NULL, status TEXT NOT NULL, video_id TEXT)"
-        )
-        db.execute("BEGIN IMMEDIATE")
-        if db.execute("SELECT 1 FROM youtube_uploads WHERE idempotency_key=?", (key,)).fetchone():
-            db.rollback()
-            raise ValueError("This idempotency_key was already used; reconcile the prior attempt before retrying.")
-        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-        count = db.execute(
-            "SELECT COUNT(*) FROM youtube_uploads WHERE channel_id=? AND created_at>=?",
-            (channel_id, cutoff),
-        ).fetchone()[0]
-        if count >= limit:
-            db.rollback()
-            raise ValueError("The local 24-hour YouTube upload limit has been reached.")
-        db.execute(
-            "INSERT INTO youtube_uploads VALUES (?, ?, ?, 'IN_PROGRESS', NULL)",
-            (key, channel_id, datetime.now(timezone.utc).isoformat()),
-        )
-        db.commit()
-    finally:
-        db.close()
-
-
 def _finish_attempt(key: str, status: str, video_id: str | None) -> None:
     db = sqlite3.connect(_ledger_path(), timeout=10)
     try:
@@ -127,9 +96,7 @@ def upload_youtube_video(
     title: str,
     description: str,
     made_for_kids: bool,
-    human_approved: bool = False,
-    video_qc_passed: bool = False,
-    originality_reviewed: bool = False,
+    approval_token: str,
     privacy_status: str = "private",
     tags: list[str] | None = None,
     category_id: str = "22",
@@ -138,7 +105,8 @@ def upload_youtube_video(
     """Upload an approved MP4. Uploading requires the server publish flag and explicit approval."""
     if os.getenv("YOUTUBE_PUBLISHING_ENABLED", "").lower() not in {"1", "true", "yes", "on"}:
         raise ValueError("YOUTUBE_PUBLISHING_ENABLED is off; upload blocked.")
-    client, channel_id, access_token = _configured_client()
+    if not approval_token.strip():
+        raise ValueError("A one-time operator approval token is required.")
     if not 1 <= len(title) <= 100:
         raise ValueError("title must contain 1 to 100 characters.")
     if len(description) > 5000:
@@ -148,15 +116,20 @@ def upload_youtube_video(
     if privacy_status == "public" and os.getenv("YOUTUBE_PUBLIC_POSTING_AUDITED", "").lower() not in {"1", "true", "yes", "on"}:
         raise ValueError("Public upload is blocked until YOUTUBE_PUBLIC_POSTING_AUDITED is enabled.")
     path = _video_path(video_path)
+    client, channel_id, access_token = _configured_client()
+    tags = tags or []
+    approval_digest = upload_approval_digest(
+        path, channel_id, title, description, made_for_kids, privacy_status, tags, category_id,
+    )
     limit = max(1, int(os.getenv("YOUTUBE_DAILY_UPLOAD_LIMIT", "6")))
     request = PlatformPublishRequest(
         platform=Platform.YOUTUBE,
         video_path=path,
         caption=description,
         idempotency_key=idempotency_key,
-        human_approved=human_approved,
-        video_qc_passed=video_qc_passed,
-        originality_reviewed=originality_reviewed,
+        human_approved=True,
+        video_qc_passed=True,
+        originality_reviewed=True,
         publishing_enabled=True,
         access_token=access_token,
         account_id=channel_id,
@@ -164,7 +137,7 @@ def upload_youtube_video(
         public_posting_audited=privacy_status != "public" or os.getenv("YOUTUBE_PUBLIC_POSTING_AUDITED", "").lower() in {"1", "true", "yes", "on"},
         metadata={
             "title": title,
-            "tags": ",".join(tags or []),
+            "tags": ",".join(tags),
             "category_id": category_id,
             "privacy_status": privacy_status,
             "made_for_kids": str(made_for_kids).lower(),
@@ -173,7 +146,9 @@ def upload_youtube_video(
     decision = evaluate_platform_publish_gates(request)
     if not decision.allowed:
         return {"ok": False, "status": "BLOCKED_BY_POLICY", "failed_gates": list(decision.failed_gates)}
-    _reserve_attempt(idempotency_key, channel_id, limit)
+    reserve_approved_attempt(
+        _ledger_path(), approval_token, approval_digest, idempotency_key, channel_id, limit,
+    )
     result = client.publish_video(request)
     _finish_attempt(idempotency_key, result.status, result.remote_id)
     return {

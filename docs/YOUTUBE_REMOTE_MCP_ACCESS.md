@@ -24,6 +24,11 @@ tunnel route is intended to reach 127.0.0.1:8765; do not point it at 8766.
   `youtube_channel_info` and the gated `upload_youtube_video` tool.
 - The upload tool accepts a path to an MP4 already present on the VPS inside
   `YOUTUBE_ALLOWED_VIDEO_DIR`; it does not transfer a ChatGPT attachment.
+- Upload approval is issued locally by an operator, not asserted by MCP boolean
+  arguments. A one-time token is bound to the exact file SHA-256, channel,
+  title, description, child-directed flag, privacy, tags, and category; it
+  expires after 10 minutes and is consumed atomically with the idempotency
+  reservation. The raw token is never stored in SQLite.
 - Keep `YOUTUBE_PUBLISHING_ENABLED=false` and
   `YOUTUBE_PUBLIC_POSTING_AUDITED=false` until an approved asset, metadata,
   privacy level, and private-upload reconciliation procedure are in place.
@@ -109,9 +114,12 @@ At the public URL, a non-browser request must trigger an OAuth challenge,
 not 200/502 or a generic login page. Edge metadata must be valid HTTPS JSON.
 Use a real MCP client, authenticate with the owner, and assert both
 youtube_channel_info and upload_youtube_video are listed. Make 3 channel-info
-calls and compare channel ID. With publishing disabled, call upload using
-fixture arguments and assert it fails closed with YOUTUBE_PUBLISHING_ENABLED
-is off; it must not contact YouTube or reserve an upload attempt. Confirm
+calls and compare channel ID. With publishing disabled, call upload and assert
+it fails closed before OAuth or YouTube access. To authorize one specific test
+upload, run `python -m meta_facebook_mcp_publisher.youtube_approval_cli` locally
+as the service account, review the exact asset and metadata, and pass its
+short-lived token only to that exact MCP call. Confirm a missing, invalid,
+expired, reused, or metadata-mismatched approval fails without calling YouTube.
 denied account and revoked/expired token behavior. Check restart and repeat
 authenticated calls. Record sanitized evidence, commit SHA, dependency
 versions, app policy/AUD (no tokens), timestamps, and client identity.
