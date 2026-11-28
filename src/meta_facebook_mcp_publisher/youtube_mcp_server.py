@@ -136,9 +136,9 @@ def upload_youtube_video(
     idempotency_key: str = "",
 ) -> dict:
     """Upload an approved MP4. Uploading requires the server publish flag and explicit approval."""
-    client, channel_id, access_token = _configured_client()
     if os.getenv("YOUTUBE_PUBLISHING_ENABLED", "").lower() not in {"1", "true", "yes", "on"}:
         raise ValueError("YOUTUBE_PUBLISHING_ENABLED is off; upload blocked.")
+    client, channel_id, access_token = _configured_client()
     if not 1 <= len(title) <= 100:
         raise ValueError("title must contain 1 to 100 characters.")
     if len(description) > 5000:
