@@ -133,6 +133,7 @@ def test_real_mcp_asgi_read_only(monkeypatch):
     monkeypatch.setattr(AccessVerifier, "__call__", lambda self, token: token == "verified-test-token")
     monkeypatch.setenv("YOUTUBE_PUBLISHING_ENABLED", "false")
     monkeypatch.setenv("YOUTUBE_PUBLIC_POSTING_AUDITED", "false")
+    monkeypatch.setattr(youtube_mcp_server, "_configured_client", lambda: (object(), "fixture-channel", ""))
     monkeypatch.setenv("CF_ACCESS_TEAM_DOMAIN", ISSUER)
     monkeypatch.setenv("CF_ACCESS_AUD", AUD)
     monkeypatch.setenv("CF_ACCESS_OWNER_EMAIL", EMAIL)
