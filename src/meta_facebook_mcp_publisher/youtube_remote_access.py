@@ -1,4 +1,4 @@
-"""Fail-closed Cloudflare Access origin for the read-only YouTube MCP.
+"""Fail-closed Cloudflare Access origin for the YouTube MCP.
 
 Cloudflare Managed OAuth handles discovery and authorization at the edge.
 The origin independently validates the signed Access application assertion.
@@ -132,11 +132,12 @@ def build_app():
     from mcp.server.fastmcp import FastMCP
     from mcp.server.transport_security import TransportSecuritySettings
     from mcp.types import ToolAnnotations
-    from .youtube_mcp_server import youtube_channel_info
+    from .youtube_mcp_server import youtube_channel_info, upload_youtube_video
 
     config = AccessConfig.from_env()
-    os.environ["YOUTUBE_PUBLISHING_ENABLED"] = "false"
-    os.environ["YOUTUBE_PUBLIC_POSTING_AUDITED"] = "false"
+    # Keep publishing disabled unless an operator explicitly enables it in the service environment.
+    os.environ.setdefault("YOUTUBE_PUBLISHING_ENABLED", "false")
+    os.environ.setdefault("YOUTUBE_PUBLIC_POSTING_AUDITED", "false")
     server = FastMCP(
         "cineforge-youtube-remote",
         host="127.0.0.1", port=8765,
@@ -151,6 +152,9 @@ def build_app():
     server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))(
         youtube_channel_info
     )
+    server.tool(annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=True, openWorldHint=True,
+    ))(upload_youtube_video)
     return AccessGate(server.streamable_http_app(), AccessVerifier(config))
 
 
