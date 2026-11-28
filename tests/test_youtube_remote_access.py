@@ -121,7 +121,7 @@ def test_unknown_route_and_method():
     assert request([HOST, ASSERTION], method="PUT") == (405, False)
 
 
-def test_real_mcp_asgi_read_only(monkeypatch):
+def test_real_mcp_asgi_read_and_gated_upload(monkeypatch):
     from starlette.testclient import TestClient
     from meta_facebook_mcp_publisher import youtube_mcp_server
     from meta_facebook_mcp_publisher.youtube_remote_access import build_app
