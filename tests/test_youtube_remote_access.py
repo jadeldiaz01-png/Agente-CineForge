@@ -131,6 +131,8 @@ def test_real_mcp_asgi_read_only(monkeypatch):
 
     monkeypatch.setattr(youtube_mcp_server, "youtube_channel_info", youtube_channel_info)
     monkeypatch.setattr(AccessVerifier, "__call__", lambda self, token: token == "verified-test-token")
+    monkeypatch.setenv("YOUTUBE_PUBLISHING_ENABLED", "false")
+    monkeypatch.setenv("YOUTUBE_PUBLIC_POSTING_AUDITED", "false")
     monkeypatch.setenv("CF_ACCESS_TEAM_DOMAIN", ISSUER)
     monkeypatch.setenv("CF_ACCESS_AUD", AUD)
     monkeypatch.setenv("CF_ACCESS_OWNER_EMAIL", EMAIL)
@@ -150,11 +152,28 @@ def test_real_mcp_asgi_read_only(monkeypatch):
         assert response.json()["result"]["serverInfo"]["name"] == "cineforge-youtube-remote"
         response = client.post("/mcp", json=message("tools/list"), headers=headers)
         assert response.status_code == 200
-        assert [t["name"] for t in response.json()["result"]["tools"]] == ["youtube_channel_info"]
+        tools = response.json()["result"]["tools"]
+        assert [t["name"] for t in tools] == ["youtube_channel_info", "upload_youtube_video"]
+        upload_tool = next(tool for tool in tools if tool["name"] == "upload_youtube_video")
+        assert upload_tool["annotations"]["readOnlyHint"] is False
+        assert upload_tool["annotations"]["destructiveHint"] is True
         response = client.post("/mcp", json=message("tools/call", {"name": "youtube_channel_info", "arguments": {}}), headers=headers)
         assert response.status_code == 200
         assert not response.json()["result"].get("isError", False)
         assert "fixture-channel" in str(response.json()["result"])
-        response = client.post("/mcp", json=message("tools/call", {"name": "upload_youtube_video", "arguments": {}}), headers=headers)
+        response = client.post("/mcp", json=message("tools/call", {
+            "name": "upload_youtube_video",
+            "arguments": {
+                "video_path": "test.mp4",
+                "title": "Test upload",
+                "description": "Must stay blocked",
+                "made_for_kids": False,
+                "human_approved": True,
+                "video_qc_passed": True,
+                "originality_reviewed": True,
+                "idempotency_key": "remote-test-key",
+            },
+        }), headers=headers)
         assert response.status_code == 200
-        assert response.json().get("error") or response.json()["result"].get("isError")
+        assert response.json()["result"].get("isError") is True
+        assert "YOUTUBE_PUBLISHING_ENABLED is off" in str(response.json()["result"])
