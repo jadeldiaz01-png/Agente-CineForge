@@ -107,11 +107,13 @@ curl -sS -o /dev/null -w '%{http_code}\n' -H 'Cf-Access-Jwt-Assertion: invalid' 
 Both direct requests must return 401; never send real JWTs in terminal logs.
 At the public URL, a non-browser request must trigger an OAuth challenge,
 not 200/502 or a generic login page. Edge metadata must be valid HTTPS JSON.
-Use a real MCP client, authenticate with the owner, assert only
-youtube_channel_info is available, make 3 calls and compare channel ID.
-Try the upload tool, assert unavailable without any external upload attempt.
-Confirm denied account and revoked/expired token behavior. Check restart
-and repeat authenticated calls. Record sanitized evidence, commit SHA, dependency
+Use a real MCP client, authenticate with the owner, and assert both
+youtube_channel_info and upload_youtube_video are listed. Make 3 channel-info
+calls and compare channel ID. With publishing disabled, call upload using
+fixture arguments and assert it fails closed with YOUTUBE_PUBLISHING_ENABLED
+is off; it must not contact YouTube or reserve an upload attempt. Confirm
+denied account and revoked/expired token behavior. Check restart and repeat
+authenticated calls. Record sanitized evidence, commit SHA, dependency
 versions, app policy/AUD (no tokens), timestamps, and client identity.
 Enable autostart only after the agreed gates pass. The service may be enabled
 for boot while publishing remains disabled.
